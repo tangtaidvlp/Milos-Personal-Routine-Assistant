@@ -11,6 +11,7 @@ spring:
       ddl-auto: update
 
   ai:
+    active: false
     google:
       genai:
         api-key: ${GEMINI_API_KEY}
