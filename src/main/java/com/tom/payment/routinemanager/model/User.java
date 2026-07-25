@@ -26,6 +26,7 @@ public class User {
 
     private String username;
     private String email;
+    private boolean onboardCompleted = false;
 
     @JsonIgnore
     @Column(name = "password_hash")

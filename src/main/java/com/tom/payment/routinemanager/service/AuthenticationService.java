@@ -86,7 +86,7 @@ public class AuthenticationService {
         LoginResponse loginResponse = new LoginResponse(
                 accessToken,
                 accessTokenExpiration,
-                new LoginResponse.UserInfo(user.getId().toString(), user.getEmail())
+            new LoginResponse.UserInfo(user.getId().toString(), user.getEmail(), user.isOnboardCompleted())
         );
 
         return new AuthTokens(loginResponse, refreshTokenValue);
