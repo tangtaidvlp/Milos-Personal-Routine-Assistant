@@ -15,6 +15,7 @@ public class LoginResponse {
     public static class UserInfo {
         private String id;
         private String email;
+        private String name;
         private boolean onboardCompleted;
     }
 }

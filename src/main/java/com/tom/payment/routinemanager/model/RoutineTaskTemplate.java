@@ -4,6 +4,8 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -25,16 +27,23 @@ public class RoutineTaskTemplate {
     private UUID id;
 
     private String name;
-    private String description;
+    @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
+    private String description;
     private int durationMinutes;
+    private String color;
 
     @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "default_routine_id")
     private DefaultRoutine defaultRoutine;
 
+    @JsonFormat(pattern = "HH:mm")
+    @JsonProperty(value = "endTime", access = JsonProperty.Access.READ_ONLY)
     public LocalTime getEndTime() {
+        if (startTime == null) {
+            return null;
+        }
         return startTime.plusMinutes(durationMinutes);
     }
 }

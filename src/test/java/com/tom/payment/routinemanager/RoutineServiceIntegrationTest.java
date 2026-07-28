@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.LocalTime;
 import java.util.Arrays;
@@ -62,7 +63,7 @@ public class RoutineServiceIntegrationTest {
     public void testCreateDailyRoutineFromDefault() {
         // 1. Setup User (now automatically creates Default Routine)
         User user = new User("testuser", "test@example.com");
-        user = userService.createUserAndDefaultDailyRoutine(user);
+        user = userService.createUserAndDefaultRoutine(user);
 
         // 2. Update Default Routine (instead of creating a new one)
         DefaultRoutine defaultRoutine = new DefaultRoutine();
@@ -77,7 +78,7 @@ public class RoutineServiceIntegrationTest {
         routineService.createDefaultRoutine(user.getId(), defaultRoutine);
 
         // 3. Trigger Daily Routine creation
-        LocalTime today = LocalTime.now();
+        LocalDate today = LocalDate.now();
         DailyRoutine dailyRoutine = dailyRoutineService.getOrCreateDailyRoutine(user.getId(), today);
 
         // 4. Assertions
@@ -95,7 +96,7 @@ public class RoutineServiceIntegrationTest {
     @Test
     public void testUpdateDefaultRoutine() {
         User user = new User("updateuser", "update@example.com");
-        user = userService.createUserAndDefaultDailyRoutine(user);
+        user = userService.createUserAndDefaultRoutine(user);
 
         DefaultRoutine existing = defaultRoutineRepository.findByUser(user).orElseThrow();
         UUID routineId = existing.getId();
@@ -118,7 +119,7 @@ public class RoutineServiceIntegrationTest {
     @Test
     public void testBulkDefaultTasksOperations() {
         User user = new User("bulkuser", "bulk@example.com");
-        user = userService.createUserAndDefaultDailyRoutine(user);
+        user = userService.createUserAndDefaultRoutine(user);
         DefaultRoutine routine = defaultRoutineRepository.findByUser(user).orElseThrow();
 
         // 1. Add bulk default tasks
@@ -160,7 +161,7 @@ public class RoutineServiceIntegrationTest {
     @Test
     public void testAddingOverlappingDefaultTaskShiftsConflictingTasks() {
         User user = new User("overlapuser", "overlap@example.com");
-        user = userService.createUserAndDefaultDailyRoutine(user);
+        user = userService.createUserAndDefaultRoutine(user);
 
         DefaultRoutine defaultRoutine = new DefaultRoutine();
         defaultRoutine.setName("Overlap Routine");
@@ -193,9 +194,9 @@ public class RoutineServiceIntegrationTest {
     @Test
     public void testBulkDailyTasksOperations() {
         User user = new User("bulkdailyuser", "bulkdaily@example.com");
-        user = userService.createUserAndDefaultDailyRoutine(user);
+        user = userService.createUserAndDefaultRoutine(user);
 
-        LocalTime today = LocalTime.now();
+        LocalDate today = LocalDate.now();
         DailyRoutine dailyRoutine = dailyRoutineService.getOrCreateDailyRoutine(user.getId(), today);
 
         // 1. Add bulk daily tasks

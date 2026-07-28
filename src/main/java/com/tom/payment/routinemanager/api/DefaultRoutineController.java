@@ -19,7 +19,7 @@ import com.tom.payment.routinemanager.model.RoutineTaskTemplate;
 import com.tom.payment.routinemanager.service.DefaultRoutineService;
 
 @RestController
-@RequestMapping("/api/routine-manager")
+@RequestMapping("/api/v1/default-routine")
 public class DefaultRoutineController {
 
     private final DefaultRoutineService routineService;
@@ -28,7 +28,7 @@ public class DefaultRoutineController {
         this.routineService = routineService;
     }
 
-    @PostMapping("/default-routine/{routineId}/tasks")
+    @PostMapping("/{routineId}/tasks")
     public ResponseEntity<List<RoutineTaskTemplate>> addDefaultTasks(
             @PathVariable UUID routineId,
             @RequestBody List<RoutineTaskTemplate> tasks) {
@@ -36,26 +36,26 @@ public class DefaultRoutineController {
         return ResponseEntity.ok(createdTasks);
     }
 
-    @PutMapping("/default-routine/tasks")
+    @PutMapping("/tasks")
     public ResponseEntity<List<RoutineTaskTemplate>> updateDefaultTasks(
             @RequestBody List<RoutineTaskTemplate> tasksDetails) {
         List<RoutineTaskTemplate> updatedTasks = routineService.updateDefaultTasks(tasksDetails);
         return ResponseEntity.ok(updatedTasks);
     }
 
-    @DeleteMapping("/default-routine/tasks")
+    @DeleteMapping("/tasks")
     public ResponseEntity<Void> deleteDefaultTasks(@RequestParam List<UUID> taskIds) {
         routineService.deleteDefaultTasks(taskIds);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/default-routine/{userId}")
+    @GetMapping("/users/{userId}")
     public ResponseEntity<DefaultRoutine> getDefaultRoutineForUser(@PathVariable UUID userId) {
         DefaultRoutine routine = routineService.getDefaultRoutineByUserId(userId);
         return ResponseEntity.ok(routine);
     }
 
-    @PostMapping("/default-routine/{userId}")
+    @PostMapping("/users/{userId}")
     public ResponseEntity<DefaultRoutine> createDefaultRoutine(
             @PathVariable UUID userId,
             @RequestBody DefaultRoutine defaultRoutine) {
@@ -63,7 +63,7 @@ public class DefaultRoutineController {
         return ResponseEntity.ok(createdRoutine);
     }
 
-    @PutMapping("/default-routine/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<DefaultRoutine> updateDefaultRoutine(
             @PathVariable UUID id,
             @RequestBody DefaultRoutine defaultRoutine) {

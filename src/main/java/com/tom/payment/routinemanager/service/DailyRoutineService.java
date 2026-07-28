@@ -44,7 +44,7 @@ public class DailyRoutineService {
     private DailyRoutine createDailyRoutineFromDefault(User user, LocalDate date) {
         log.info("Creating daily routine for user {} on date {}", user.getId(), date);
         DefaultRoutine defaultRoutine = defaultRoutineRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Default routine not found for user"));
+                .orElseThrow(() -> new RuntimeException("Daily routine not found for user"));
 
         DailyRoutine dailyRoutine = new DailyRoutine();
         dailyRoutine.setUser(user);

@@ -22,12 +22,6 @@ public class UserController {
         this.userService = userService;
     }
 
-    @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        User createdUser = userService.createUserAndDefaultDailyRoutine(user);
-        return ResponseEntity.ok(createdUser);
-    }
-
     @PostMapping("/{userId}/onboarding/complete")
     public ResponseEntity<User> markOnboardingCompleted(@PathVariable UUID userId) {
         User updatedUser = userService.markOnboardingCompleted(userId);

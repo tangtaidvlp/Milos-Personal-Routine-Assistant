@@ -26,7 +26,7 @@ public class UserService {
     }
 
     @Transactional
-    public User createUserAndDefaultDailyRoutine(User user) {
+    public User createUserAndDefaultRoutine(User user) {
         User savedUser = userRepository.save(user);
         
         DefaultRoutine defaultRoutine = new DefaultRoutine();

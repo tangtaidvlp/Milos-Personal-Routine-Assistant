@@ -4,16 +4,21 @@ import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import com.tom.payment.routinemanager.service.aitools.DailyRoutineAiTools;
 import com.tom.payment.routinemanager.service.aitools.DefaultRoutineAiTools;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Wires the Gemini ChatClient with our @Tool-annotated tool beans and
  * handles the chat interaction for each user.
  */
+@Slf4j
 @Service
+@Primary
 @ConditionalOnProperty(name = "spring.ai.active", havingValue = "true")
 public class GeminiAiChatService implements AiChatService {
 
@@ -23,6 +28,7 @@ public class GeminiAiChatService implements AiChatService {
             ChatClient.Builder chatClientBuilder,
             DefaultRoutineAiTools defaultRoutineAiTools,
             DailyRoutineAiTools dailyRoutineAiTools) {
+        log.info("Initializing GeminiAiChatService with Gemini ChatClient and AI tools.");
         this.chatClient = chatClientBuilder
                 .defaultSystem("""
                         You are a helpful Personal Routine Assistant.

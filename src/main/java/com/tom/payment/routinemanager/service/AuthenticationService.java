@@ -1,47 +1,49 @@
 package com.tom.payment.routinemanager.service;
 
-import com.tom.payment.routinemanager.dto.*;
-import com.tom.payment.routinemanager.model.RefreshToken;
-import com.tom.payment.routinemanager.model.User;
-import com.tom.payment.routinemanager.repository.RefreshTokenRepository;
-import com.tom.payment.routinemanager.repository.UserRepository;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalTime;
 import java.util.Date;
 import java.util.UUID;
 
 import javax.crypto.SecretKey;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.tom.payment.routinemanager.dto.AuthTokens;
+import com.tom.payment.routinemanager.dto.LoginRequest;
+import com.tom.payment.routinemanager.dto.LoginResponse;
+import com.tom.payment.routinemanager.dto.RefreshResponse;
+import com.tom.payment.routinemanager.dto.RegisterRequest;
+import com.tom.payment.routinemanager.dto.RegisterResponse;
+import com.tom.payment.routinemanager.model.RefreshToken;
+import com.tom.payment.routinemanager.model.User;
+import com.tom.payment.routinemanager.repository.RefreshTokenRepository;
+import com.tom.payment.routinemanager.repository.UserRepository;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class AuthenticationService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
-    private final SecretKey jwtSecretKey;
+    private final UserService userService;
+    // TODO: Externalise this configuration to application.properties or environment variables
+    //  for better security and flexibility.
+    private final SecretKey jwtSecretKey = Jwts.SIG.HS256.key().build(); 
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${jwt.access.expiration:900}") // 15 minutes in seconds
     private int accessTokenExpiration;
 
     @Value("${jwt.refresh.expiration:604800}") // 7 days in seconds
     private int refreshTokenExpiration;
-
-    public AuthenticationService(
-            UserRepository userRepository,
-            RefreshTokenRepository refreshTokenRepository) {
-        this.userRepository = userRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
-        this.passwordEncoder = new BCryptPasswordEncoder();
-        // Generate a secure key for HS256
-        this.jwtSecretKey = Jwts.SIG.HS256.key().build();
-    }
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -55,7 +57,7 @@ public class AuthenticationService {
         user.setEmail(request.getEmail());
         user.setUsername(request.getUsername());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        User savedUser = userRepository.save(user);
+        User savedUser = userService.createUserAndDefaultRoutine(user);
 
         return new RegisterResponse(
                 savedUser.getId(),
@@ -86,7 +88,7 @@ public class AuthenticationService {
         LoginResponse loginResponse = new LoginResponse(
                 accessToken,
                 accessTokenExpiration,
-            new LoginResponse.UserInfo(user.getId().toString(), user.getEmail(), user.isOnboardCompleted())
+            new LoginResponse.UserInfo(user.getId().toString(), user.getEmail(), "Tomm Tang", user.isOnboardCompleted())
         );
 
         return new AuthTokens(loginResponse, refreshTokenValue);
@@ -154,6 +156,7 @@ public class AuthenticationService {
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
+                .claim("name", user.getUsername())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration * 1000L))
                 .signWith(jwtSecretKey)
