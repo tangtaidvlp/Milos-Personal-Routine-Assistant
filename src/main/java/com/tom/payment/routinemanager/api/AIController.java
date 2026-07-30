@@ -27,12 +27,12 @@ public class AIController {
         this.aiChatService = aiChatService;
     }
 
-    @PostMapping("/chat/{userId}")
+    @PostMapping("/chat/default-routine/{userId}")
     public ResponseEntity<ChatResponse> chatWithAi(
             @PathVariable UUID userId,
             @RequestBody ChatRequest request) {
         logger.info("AI chat request for user {}: {}", userId, request.getMessage());
-        String aiReply = aiChatService.chat(userId, request.getMessage());
+        String aiReply = aiChatService.defaultRoutineChat(userId, request.getDefaultRoutine(), request.getMessage());
         ChatResponse response = new ChatResponse();
         response.setReply(aiReply);
         logger.info("AI chat response for user {}: {}", userId, aiReply);

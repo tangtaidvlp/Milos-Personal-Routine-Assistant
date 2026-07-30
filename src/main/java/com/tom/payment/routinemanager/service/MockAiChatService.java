@@ -1,6 +1,7 @@
 package com.tom.payment.routinemanager.service;
 
 import java.util.UUID;
+import com.tom.payment.routinemanager.model.DefaultRoutine; 
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,8 @@ public class MockAiChatService implements AiChatService {
     }
 
     @Override
-    public String chatEnhance(UUID userId, UUID defaultRoutineId, String userMessage) {
+    public String defaultRoutineChat(UUID userId, DefaultRoutine defaultRoutine, String userMessage) {
         // Mock response for testing
-        return "Mock response for user " + userId + " (routine " + defaultRoutineId + "): " + userMessage;
+        return "Mock response for user " + userId + " (routine " + defaultRoutine.getId() + "): " + userMessage;
     }
 }
