@@ -85,7 +85,7 @@ public class DefaultRoutineService {
 
         List<RoutineTaskTemplate> savedTasks = tasks.stream().map(task -> {
             task.setDefaultRoutine(routine);
-            TaskTimeFunctions.shiftOverlappingTasks(routine.getTasks(), task);
+            TaskTimeFunctions.standardiseTasks(routine.getTasks(), task);
             routine.getTasks().add(task);
             return task;
         }).collect(Collectors.toList());
@@ -108,7 +108,7 @@ public class DefaultRoutineService {
                 List<RoutineTaskTemplate> siblings = routine.getTasks().stream()
                         .filter(task -> !task.getId().equals(existing.getId()))
                         .collect(Collectors.toList());
-                TaskTimeFunctions.shiftOverlappingTasks(siblings, existing);
+                TaskTimeFunctions.standardiseTasks(siblings, existing);
             }
 
             return routineTaskTemplateRepository.save(existing);

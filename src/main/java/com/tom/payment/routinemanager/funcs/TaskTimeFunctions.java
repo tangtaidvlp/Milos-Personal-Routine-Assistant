@@ -13,7 +13,7 @@ public final class TaskTimeFunctions {
     private TaskTimeFunctions() {
     }
 
-    public static void shiftOverlappingTasks(List<RoutineTaskTemplate> existingTasks, RoutineTaskTemplate newTask) {
+    public static void standardiseTasks(List<RoutineTaskTemplate> existingTasks, RoutineTaskTemplate newTask) {
         if (existingTasks == null || newTask == null || newTask.getStartTime() == null || newTask.getDurationMinutes() <= 0) {
             return;
         }
