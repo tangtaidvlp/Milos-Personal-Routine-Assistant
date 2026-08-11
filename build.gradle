@@ -50,3 +50,14 @@ dependencyManagement {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+tasks.register('release', Copy) {
+	group = 'distribution'
+	description = 'Builds the executable jar and copies it into release/ as routinemanager-<version>.jar'
+
+	dependsOn tasks.named('bootJar')
+
+	from(tasks.named('bootJar'))
+	into layout.projectDirectory.dir('release')
+	rename { "routinemanager-${version}.jar" }
+}
