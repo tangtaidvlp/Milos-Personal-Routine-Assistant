@@ -64,7 +64,7 @@ tasks.register('release', Copy) {
 
 tasks.register('runRelease', Exec) {
 	group = 'application'
-	description = 'Runs the most recently built jar in release/ (via java -jar)'
+	description = 'Runs the most recently built jar in release/ (via java -jar). Pass -Pprofile=<name> to set spring.profiles.active'
 
 	doFirst {
 		def releaseDir = layout.projectDirectory.dir('release').asFile
@@ -73,6 +73,10 @@ tasks.register('runRelease', Exec) {
 			throw new GradleException("No jar found in release/. Run './gradlew release' first.")
 		}
 		def latestJar = jars.max { it.lastModified() }
-		commandLine 'java', '-jar', latestJar.absolutePath
+		def command = ['java', '-jar', latestJar.absolutePath]
+		if (project.hasProperty('profile')) {
+			command << "--spring.profiles.active=${project.property('profile')}"
+		}
+		commandLine command
 	}
 }
