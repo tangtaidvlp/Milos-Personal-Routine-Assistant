@@ -61,3 +61,18 @@ tasks.register('release', Copy) {
 	into layout.projectDirectory.dir('release')
 	rename { "routinemanager-${version}.jar" }
 }
+
+tasks.register('runRelease', Exec) {
+	group = 'application'
+	description = 'Runs the most recently built jar in release/ (via java -jar)'
+
+	doFirst {
+		def releaseDir = layout.projectDirectory.dir('release').asFile
+		def jars = releaseDir.exists() ? releaseDir.listFiles({ f -> f.name.endsWith('.jar') } as FileFilter) : null
+		if (!jars) {
+			throw new GradleException("No jar found in release/. Run './gradlew release' first.")
+		}
+		def latestJar = jars.max { it.lastModified() }
+		commandLine 'java', '-jar', latestJar.absolutePath
+	}
+}
