@@ -33,10 +33,35 @@ public class DailyRoutineService {
     // This one is for new user creation
     // When they create account after the cron job has already run for the day
     // we need to create a daily routine for them
+    //
+    // Only "today" auto-clones from the default routine here. Browsing to any
+    // other date must not silently write data just from looking at it, so a
+    // missing non-today date comes back as a transient (unsaved) empty
+    // routine instead. Use ensureDailyRoutine to explicitly create one.
     @Transactional
     public DailyRoutine getOrCreateDailyRoutine(UUID userId, LocalDate date) {
         User user = userService.getUserById(userId);
-        
+
+        return dailyRoutineRepository.findByUserAndDate(user, date)
+                .orElseGet(() -> {
+                    if (date.isEqual(LocalDate.now())) {
+                        return createDailyRoutineFromDefault(user, date);
+                    }
+                    DailyRoutine transientRoutine = new DailyRoutine();
+                    transientRoutine.setUser(user);
+                    transientRoutine.setDate(date);
+                    return transientRoutine;
+                });
+    }
+
+    // Explicit, intent-driven get-or-create for any date (e.g. the user adds
+    // their first task to a date that hasn't been touched yet) — always
+    // persists and clones from the default routine if missing, regardless of
+    // date.
+    @Transactional
+    public DailyRoutine ensureDailyRoutine(UUID userId, LocalDate date) {
+        User user = userService.getUserById(userId);
+
         return dailyRoutineRepository.findByUserAndDate(user, date)
                 .orElseGet(() -> createDailyRoutineFromDefault(user, date));
     }

@@ -60,4 +60,13 @@ public class DailyRoutineController {
         DailyRoutine dailyRoutine = dailyRoutineService.getOrCreateDailyRoutine(userId, targetDate);
         return ResponseEntity.ok(dailyRoutine);
     }
+
+    @PostMapping("/daily-routine/{userId}")
+    public ResponseEntity<DailyRoutine> ensureDailyRoutine(
+            @PathVariable UUID userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        DailyRoutine dailyRoutine = dailyRoutineService.ensureDailyRoutine(userId, date);
+        return ResponseEntity.ok(dailyRoutine);
+    }
 }
