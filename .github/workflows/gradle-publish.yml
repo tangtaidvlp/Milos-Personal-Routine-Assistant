@@ -33,6 +33,7 @@ jobs:
 
     # 5. Configure AWS CLI & Credentials securely
     - name: Configure AWS Credentials
+      if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -41,6 +42,7 @@ jobs:
 
     # 6. Use the AWS CLI (Example: Logging into ECR)
     - name: Verify AWS CLI and Login to Amazon ECR
+      if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
       run: |
         # The AWS CLI is now fully authenticated and ready to use!
         aws sts get-caller-identity
