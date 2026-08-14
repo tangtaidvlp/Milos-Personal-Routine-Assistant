@@ -1,0 +1,49 @@
+name: Java 25 Backend & AWS Deployment
+
+# 1. When does this run?
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 2. Pull your code from the repository
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    # 3. Set up Java 25
+    - name: Set up Java 25
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'temurin' # Eclipse Temurin is standard and highly reliable
+        cache: 'gradle'         # Speeds up builds by caching dependencies
+
+    # 4. Build the Spring Boot App
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: ./gradlew clean build -x test # Skipping tests for speed, remove '-x test' to enforce testing
+
+    # 5. Configure AWS CLI & Credentials securely
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1 # Change this if your AWS region is different
+
+    # 6. Use the AWS CLI (Example: Logging into ECR)
+    - name: Verify AWS CLI and Login to Amazon ECR
+      run: |
+        # The AWS CLI is now fully authenticated and ready to use!
+        aws sts get-caller-identity
+        
+        # Example command to log Docker into your AWS ECR account:
+        # aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin YOUR_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
