@@ -15,7 +15,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ap-southeast-1
-      ECR_REPOSITORY: 038462789005.dkr.ecr.ap-southeast-1.amazonaws.com/milos
+      ECR_REPOSITORY: milos
 
     steps:
     - name: Checkout Source Code
