@@ -54,7 +54,7 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         if aws ecr describe-images --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then
-          echo "exists=true" >> "$GITHUB_OUTPUT"a
+          echo "exists=true" >> "$GITHUB_OUTPUT"
         else
           echo "exists=false" >> "$GITHUB_OUTPUT"
         fi
