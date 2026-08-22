@@ -1,7 +1,9 @@
 package com.tom.payment.routinemanager.service;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
+import com.tom.payment.routinemanager.model.DailyRoutine;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
 
 /**
@@ -15,4 +17,6 @@ public interface AiChatService {
 
     // For later usage
     String defaultRoutineChat(UUID userId, DefaultRoutine defaultRoutine, String userMessage);
+
+    String dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, LocalDate date, String userMessage);
 }

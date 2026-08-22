@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tom.payment.routinemanager.funcs.JsonFunc;
+import com.tom.payment.routinemanager.model.DailyRoutine;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.service.aitools.DailyRoutineAiTools;
 import com.tom.payment.routinemanager.service.aitools.DefaultRoutineAiTools;
@@ -81,6 +82,27 @@ public class GeminiAiChatService implements AiChatService {
                         + "Today's date is: " + java.time.LocalDate.now() + ".")
                 .user(userMessage)
                 .advisors(a -> a.param(org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID, userId.toString().concat("-"+defaultRoutine.getId().toString())))
+                .call()
+                .content();
+    }
+
+    @Override
+    public String dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, java.time.LocalDate date, String userMessage) {
+        boolean isPastDate = date.isBefore(java.time.LocalDate.now());
+        return chatClient.prompt()
+                .system("Current user's ID is: " + userId
+                        + ". You MUST use this ID whenever a tool requires a 'userId' parameter. "
+                        + "User is asking to interact on their daily routine for date: " + date + ". "
+                        + "Current daily routine state: " + jsonFunc.parseToJson(dailyRoutine) + ". "
+                        + "ID is ID. "
+                        + "tasks are the routine tasks item, you need to identify which tasks user are mention base on their prompt and perform the request. "
+                        + (isPastDate
+                                ? "This date is in the past. Do NOT add new tasks or change any task's time schedule (startTime/durationMinutes) for this date. "
+                                        + "Only completed status, name, or description may be changed. Politely explain this limitation if the user asks to reschedule. "
+                                : "")
+                        + "Today's date is: " + java.time.LocalDate.now() + ".")
+                .user(userMessage)
+                .advisors(a -> a.param(org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID, userId.toString().concat("-daily-" + date.toString())))
                 .call()
                 .content();
     }

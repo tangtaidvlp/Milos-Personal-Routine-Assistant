@@ -40,6 +40,9 @@ public class DailyRoutineAiTools {
         try {
             User user = userService.getUserById(UUID.fromString(userId));
             LocalDate targetDate = LocalDate.parse(date);
+            if (targetDate.isBefore(LocalDate.now())) {
+                return "Cannot add new scheduled tasks to a past daily routine (" + date + ") — that day has already passed.";
+            }
             DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, targetDate)
                     .orElseThrow(() -> new RuntimeException("Daily routine not found for date: " + date));
 
@@ -69,6 +72,7 @@ public class DailyRoutineAiTools {
         try {
             User user = userService.getUserById(UUID.fromString(userId));
             LocalDate targetDate = LocalDate.parse(date);
+            boolean isPastDate = targetDate.isBefore(LocalDate.now());
             DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, targetDate)
                     .orElseThrow(() -> new RuntimeException("Daily routine not found for date: " + date));
 
@@ -84,9 +88,10 @@ public class DailyRoutineAiTools {
                 details.setId(existing.getId());
                 details.setName(u.newName() != null ? u.newName() : existing.getName());
                 details.setDescription(u.description() != null ? u.description() : existing.getDescription());
-                details.setStartTime(u.startTime() != null ? LocalTime.parse(u.startTime()) : existing.getStartTime());
+                // Past daily routines are frozen: never change the time schedule, only content/completion.
+                details.setStartTime(!isPastDate && u.startTime() != null ? LocalTime.parse(u.startTime()) : existing.getStartTime());
                 Integer requestedDuration = u.durationMinutes();
-                details.setDurationMinutes(requestedDuration != null ? requestedDuration : existing.getDurationMinutes());
+                details.setDurationMinutes(!isPastDate && requestedDuration != null ? requestedDuration : existing.getDurationMinutes());
                 Boolean requestedCompleted = u.completed();
                 details.setCompleted(requestedCompleted != null ? requestedCompleted : existing.isCompleted());
                 toUpdate.add(details);

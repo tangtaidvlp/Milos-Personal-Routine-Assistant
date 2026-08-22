@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.tom.payment.routinemanager.dto.ChatRequest;
 import com.tom.payment.routinemanager.dto.ChatResponse;
+import com.tom.payment.routinemanager.dto.DailyRoutineChatRequest;
 import com.tom.payment.routinemanager.service.AiChatService;
 
 @RestController
@@ -36,6 +37,18 @@ public class AIController {
         ChatResponse response = new ChatResponse();
         response.setReply(aiReply);
         logger.info("AI chat response for user {}: {}", userId, aiReply);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/chat/daily-routine/{userId}")
+    public ResponseEntity<ChatResponse> chatWithAiForDailyRoutine(
+            @PathVariable UUID userId,
+            @RequestBody DailyRoutineChatRequest request) {
+        logger.info("AI daily routine chat request for user {} on {}: {}", userId, request.getDate(), request.getMessage());
+        String aiReply = aiChatService.dailyRoutineChat(userId, request.getDailyRoutine(), request.getDate(), request.getMessage());
+        ChatResponse response = new ChatResponse();
+        response.setReply(aiReply);
+        logger.info("AI daily routine chat response for user {}: {}", userId, aiReply);
         return ResponseEntity.ok(response);
     }
 
