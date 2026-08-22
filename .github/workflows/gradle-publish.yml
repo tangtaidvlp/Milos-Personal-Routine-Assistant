@@ -47,8 +47,20 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, Tag, and Push Docker Image
+    - name: Check if image tag already exists in ECR
       if: env.AWS_ACCESS_KEY_ID != ''
+      id: check-image
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        if aws ecr describe-images --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"a
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Build, Tag, and Push Docker Image
+      if: env.AWS_ACCESS_KEY_ID != '' && steps.check-image.outputs.exists != 'true'
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
