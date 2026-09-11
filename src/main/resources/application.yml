@@ -1,3 +1,10 @@
+app:
+  cors:
+    # Exact origins, comma-separated. Overridden per profile, and at deploy time
+    # by APP_CORS_ALLOWED_ORIGINS with no rebuild.
+    # An origin is scheme://host[:port] — no path, no trailing slash.
+    allowed-origins: https://app.example.com
+
 spring:
   application:
     name: routinemanager
