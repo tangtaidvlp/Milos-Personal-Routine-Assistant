@@ -10,7 +10,7 @@ spring:
     name: routinemanager
 
   profiles:
-    active: fast
+    active: local
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect

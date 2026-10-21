@@ -16,33 +16,33 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: routine-manager-app
-    depends_on:
-      database:
-        condition: service_healthy
-    environment:
-      SPRING_PROFILES_ACTIVE: local
-      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/postgres
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-    expose:
-      - "8080"
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: routine-manager-app
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: local
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/postgres
+  #     SPRING_DATASOURCE_USERNAME: postgres
+  #     SPRING_DATASOURCE_PASSWORD: postgres
+  #     GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  #   expose:
+  #     - "8080"
 
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: routine-manager-nginx
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
+  # nginx:
+  #   build:
+  #     context: ./nginx
+  #     dockerfile: Dockerfile
+  #   container_name: routine-manager-nginx
+  #   depends_on:
+  #     - app
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
 
 volumes:
   postgres_data_v18:

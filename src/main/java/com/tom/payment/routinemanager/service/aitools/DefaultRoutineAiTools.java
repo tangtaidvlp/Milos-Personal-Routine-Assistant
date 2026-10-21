@@ -31,7 +31,7 @@ public class DefaultRoutineAiTools {
     public record TaskUpdateInput(String taskId, String newName, String description, String startTime, Integer durationMinutes) {}
 
     @Tool(description = "Add one or more tasks to a specific default routine template by defaultRoutineId. " +
-            "Each task needs a name, description, startTime (HH:mm format), and durationMinutes.")
+            "Each task needs a name, description, startTime (HH:mm format), and durationMinutes. If tasks are cross to next day, split it into 2 tasks having same color")
     public String addDefaultRoutineTasks(
             @ToolParam(description = "The UUID of the user") String userId,
             @ToolParam(description = "The UUID of the default routine") String defaultRoutineId,
