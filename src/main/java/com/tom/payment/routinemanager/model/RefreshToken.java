@@ -1,12 +1,17 @@
 package com.tom.payment.routinemanager.model;
 
-import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "refresh_tokens")
@@ -25,7 +30,7 @@ public class RefreshToken {
     private String tokenVal;
 
     @Column(name = "expiry_date", nullable = false)
-    private LocalTime expiryDate;
+    private Instant expiryDate;
 
     @Column(name = "is_revoked", nullable = false)
     private Boolean isRevoked = false;

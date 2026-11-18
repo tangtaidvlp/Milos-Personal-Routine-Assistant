@@ -1,6 +1,9 @@
 package com.tom.payment.routinemanager.service;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.UUID;
 
@@ -82,13 +85,14 @@ public class AuthenticationService {
         String accessToken = generateAccessToken(user);
 
         // Generate and save refresh token
-        String refreshTokenValue = generateRefreshToken(user);
-        saveRefreshToken(user.getId(), refreshTokenValue);
+        Instant expiryDate = Instant.now().plusSeconds(accessTokenExpiration);
+        String refreshTokenValue = generateRefreshToken(user, expiryDate);
+        saveRefreshToken(user.getId(), refreshTokenValue, expiryDate);
 
         LoginResponse loginResponse = new LoginResponse(
                 accessToken,
                 accessTokenExpiration,
-            new LoginResponse.UserInfo(user.getId().toString(), user.getEmail(), "Tomm Tang", user.isOnboardCompleted())
+            new LoginResponse.UserInfo(user.getId().toString(), user.getEmail(), user.getUsername(), user.isOnboardCompleted())
         );
 
         return new AuthTokens(loginResponse, refreshTokenValue);
@@ -105,7 +109,7 @@ public class AuthenticationService {
         }
 
         // Check if token is expired
-        if (refreshToken.getExpiryDate().isBefore(LocalTime.now())) {
+        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
             throw new RuntimeException("Refresh token has expired");
         }
 
@@ -163,20 +167,20 @@ public class AuthenticationService {
                 .compact();
     }
 
-    private String generateRefreshToken(User user) {
+    private String generateRefreshToken(User user, Instant expiryDate) {
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiration * 1000L))
+                .expiration(Date.from(expiryDate))
                 .signWith(jwtSecretKey)
                 .compact();
     }
 
-    private void saveRefreshToken(UUID userId, String tokenValue) {
+    private void saveRefreshToken(UUID userId, String tokenValue, Instant expiryDate) {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUserId(userId);
         refreshToken.setTokenVal(tokenValue);
-        refreshToken.setExpiryDate(LocalTime.now().plusSeconds(refreshTokenExpiration));
+        refreshToken.setExpiryDate(expiryDate);
         refreshToken.setIsRevoked(false);
         refreshTokenRepository.save(refreshToken);
     }

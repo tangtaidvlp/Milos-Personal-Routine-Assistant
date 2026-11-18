@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,5 +27,11 @@ public class UserController {
     public ResponseEntity<User> markOnboardingCompleted(@PathVariable UUID userId) {
         User updatedUser = userService.markOnboardingCompleted(userId);
         return ResponseEntity.ok(updatedUser);
+    }
+
+    @GetMapping("/{userId}/onboarding/complete")
+    public ResponseEntity<User> getUserData(@PathVariable UUID userId) {
+        User user = userService.getUserById(userId);
+        return ResponseEntity.ok(user);
     }
 }
