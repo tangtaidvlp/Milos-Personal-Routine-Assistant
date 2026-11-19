@@ -5,11 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Build & run (uses H2 in-memory DB by default with "fast" profile)
+# Run with the default profile (`local` → PostgreSQL; start the DB first)
+docker compose up -d database   # PostgreSQL on port 5469
 ./gradlew bootRun
 
-# Run with local PostgreSQL (requires docker-compose up first)
-./gradlew bootRun -Pprofile=local
+# Run without a DB (H2 in-memory, `fast` profile)
+SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
+# -Pprofile is NOT read by bootRun; it only applies to runRelease
 
 # Build executable JAR → build/libs/
 ./gradlew build -x test        # skip tests for speed
@@ -25,9 +27,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew test
 ./gradlew test --tests "com.tom.payment.routinemanager.RoutineServiceIntegrationTest"
 ./gradlew test --tests "com.tom.payment.routinemanager.apptest.OnboardingRoutineTest"
-
-# Docker (local dev DB)
-docker compose up -d database   # PostgreSQL on port 5469
 ```
 
 ## Architecture
@@ -38,8 +37,8 @@ docker compose up -d database   # PostgreSQL on port 5469
 
 | Profile | DB | Auth | Purpose |
 |---------|----|------|---------|
-| `fast` (default) | H2 in-memory | Disabled (`allowAll=true`) | Quick local dev, no DB setup |
-| `local` | PostgreSQL (localhost:5469) | Disabled (`allowAll=true`) | Full local stack |
+| `fast` | H2 in-memory | Disabled (`allowAll=true`) | Quick local dev, no DB setup |
+| `local` (default, set in `application.yml`) | PostgreSQL (localhost:5469) | Disabled (`allowAll=true`) | Full local stack |
 | `sit` | PostgreSQL (localhost:5469) | Enabled (JWT filter) | Staging/integration testing |
 | `prod` | External PostgreSQL | Enabled (JWT filter) | Production |
 
@@ -68,7 +67,7 @@ docker compose up -d database   # PostgreSQL on port 5469
 ### AI integration
 
 - `AiChatService` interface with two implementations switched by `spring.ai.active` property:
-  - **`GeminiAiChatService`** (`spring.ai.active=true`, default) — Spring AI with Gemini 2.0 Flash. Uses `@Tool`-annotated methods in `DailyRoutineAiTools` and `DefaultRoutineAiTools` for CRUD operations. Conversation memory: in-memory window of last 20 messages per conversation.
+  - **`GeminiAiChatService`** (`spring.ai.active=true`, default) — Spring AI with Gemini (model set in `application.yml`, currently `gemini-3.6-flash`). Uses `@Tool`-annotated methods in `DailyRoutineAiTools` and `DefaultRoutineAiTools` for CRUD operations. Conversation memory: in-memory window of last 20 messages per conversation.
   - **`MockAiChatService`** (`spring.ai.active=false`) — returns echo responses, no Spring AI beans required.
 - `AiRoutineFunctions` is a **legacy** function-calling approach using `java.util.function.Function` beans — it coexists but `GeminiAiChatService` uses the `@Tool` approach.
 - Gemini API key is configured via `GEMINI_API_KEY` environment variable.
@@ -85,20 +84,7 @@ docker compose up -d database   # PostgreSQL on port 5469
 | `/api/users/**` | `UserController` | Onboarding completion |
 | `/api/support/cron/**` | `CronSupportController` | Manual cron trigger (local/fast/test only) |
 
-### Package layout
-
-```
-com.tom.payment.routinemanager
-├── api/          # @RestController classes
-├── config/       # SecurityConfig, JwtAuthenticationFilter, GeminiProperties, AiRoutineFunctions, CustomObjectMapper
-├── dto/          # Request/response DTOs
-├── funcs/        # Utility classes (JsonFunc, TaskTimeFunctions)
-├── model/        # JPA @Entity classes
-├── repository/   # Spring Data JPA repositories
-├── service/      # Business logic
-│   ├── aitools/  # @Tool-annotated classes for Gemini function calling
-│   └── cronjobs/ # @Scheduled jobs
-```
+Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `funcs`, `model`, `repository`, `service/aitools`, `service/cronjobs`).
 
 ## Deployment
 
@@ -114,4 +100,4 @@ com.tom.payment.routinemanager
 - `@Transactional` on all service write methods.
 - UUID primary keys with `GenerationType.UUID`.
 - `application.yml` contains shared config; profile-specific files override datasource settings.
-- The `application-fast.yml` (default profile) uses H2 in-memory DB — no PostgreSQL needed for basic development.
+- `application-fast.yml` uses H2 in-memory DB — no PostgreSQL needed. It is not the default; select it with `SPRING_PROFILES_ACTIVE=fast`.
