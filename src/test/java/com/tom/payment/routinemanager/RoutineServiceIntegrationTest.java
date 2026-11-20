@@ -1,6 +1,8 @@
 package com.tom.payment.routinemanager;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.time.LocalTime;
 import java.time.LocalTime;
 import java.util.Arrays;
@@ -98,7 +100,7 @@ public class RoutineServiceIntegrationTest {
         User user = new User("updateuser", "update@example.com");
         user = userService.createUserAndDefaultRoutine(user);
 
-        DefaultRoutine existing = defaultRoutineRepository.findByUser(user).orElseThrow();
+        DefaultRoutine existing = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY).orElseThrow();
         UUID routineId = existing.getId();
 
         DefaultRoutine update = new DefaultRoutine();
@@ -120,7 +122,7 @@ public class RoutineServiceIntegrationTest {
     public void testBulkDefaultTasksOperations() {
         User user = new User("bulkuser", "bulk@example.com");
         user = userService.createUserAndDefaultRoutine(user);
-        DefaultRoutine routine = defaultRoutineRepository.findByUser(user).orElseThrow();
+        DefaultRoutine routine = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY).orElseThrow();
 
         // 1. Add bulk default tasks
         RoutineTaskTemplate task1 = new RoutineTaskTemplate();
@@ -179,9 +181,9 @@ public class RoutineServiceIntegrationTest {
         newTask.setStartTime(LocalTime.of(9, 30));
         newTask.setDurationMinutes(30);
 
-        routineService.addDefaultTasks(defaultRoutineRepository.findByUser(user).orElseThrow().getId(), Collections.singletonList(newTask));
+        routineService.addDefaultTasks(defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY).orElseThrow().getId(), Collections.singletonList(newTask));
 
-        DefaultRoutine fetchedRoutine = defaultRoutineRepository.findByUser(user).orElseThrow();
+        DefaultRoutine fetchedRoutine = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY).orElseThrow();
         RoutineTaskTemplate shiftedTask = fetchedRoutine.getTasks().stream()
                 .filter(task -> "Existing Task".equals(task.getName()))
                 .findFirst()
@@ -239,5 +241,71 @@ public class RoutineServiceIntegrationTest {
         dailyRoutineService.deleteDailyTasks(Arrays.asList(dt1.getId(), dt2.getId()));
         DailyRoutine fetchedRoutine3 = dailyRoutineRepository.findById(dailyRoutine.getId()).orElseThrow();
         assertEquals(0, fetchedRoutine3.getTasks().size());
+    }
+
+    // --- 002-onboarding-instruction: which default routine a day is copied from (research R3) ---
+
+    private static LocalDate next(DayOfWeek day) {
+        return LocalDate.now().with(TemporalAdjusters.next(day));
+    }
+
+    private User userWithWeekendTasks(String email, String... weekendTaskNames) {
+        User user = userService.createUserAndDefaultRoutine(new User(email, email));
+        DefaultRoutine weekend = new DefaultRoutine();
+        weekend.setName("Weekend Routine");
+        weekend.setRoutineType(DefaultRoutine.RoutineTypeEnum.WEEKEND);
+        List<RoutineTaskTemplate> tasks = new java.util.ArrayList<>();
+        int hour = 9;
+        for (String name : weekendTaskNames) {
+            RoutineTaskTemplate task = new RoutineTaskTemplate();
+            task.setName(name);
+            task.setStartTime(LocalTime.of(hour++, 0));
+            task.setDurationMinutes(30);
+            tasks.add(task);
+        }
+        weekend.setTasks(tasks);
+        routineService.createDefaultRoutine(user.getId(), weekend);
+        return user;
+    }
+
+    @Test
+    public void resolveTemplateForUsesWeekdayRoutineOnWeekdays() {
+        User user = userWithWeekendTasks("resolve-weekday@example.com", "Long run");
+        DefaultRoutine template = routineService.resolveTemplateFor(user, next(DayOfWeek.WEDNESDAY));
+        assertEquals(DefaultRoutine.RoutineTypeEnum.DAILY, template.getRoutineType());
+    }
+
+    @Test
+    public void resolveTemplateForUsesWeekendRoutineOnSaturdayWhenItHasTasks() {
+        User user = userWithWeekendTasks("resolve-saturday@example.com", "Long run");
+        DefaultRoutine template = routineService.resolveTemplateFor(user, next(DayOfWeek.SATURDAY));
+        assertEquals(DefaultRoutine.RoutineTypeEnum.WEEKEND, template.getRoutineType());
+    }
+
+    @Test
+    public void resolveTemplateForFallsBackToWeekdayWhenWeekendRoutineIsEmpty() {
+        User user = userWithWeekendTasks("resolve-empty-weekend@example.com");
+        DefaultRoutine template = routineService.resolveTemplateFor(user, next(DayOfWeek.SATURDAY));
+        assertEquals(DefaultRoutine.RoutineTypeEnum.DAILY, template.getRoutineType());
+    }
+
+    @Test
+    public void resolveTemplateForFallsBackToWeekdayWhenThereIsNoWeekendRoutine() {
+        User user = userRepository.save(new User("resolve-no-weekend@example.com", "resolve-no-weekend@example.com"));
+        DefaultRoutine weekday = new DefaultRoutine();
+        weekday.setName("Weekday Routine");
+        weekday.setRoutineType(DefaultRoutine.RoutineTypeEnum.DAILY);
+        routineService.createDefaultRoutine(user.getId(), weekday);
+
+        DefaultRoutine template = routineService.resolveTemplateFor(user, next(DayOfWeek.SUNDAY));
+        assertEquals(DefaultRoutine.RoutineTypeEnum.DAILY, template.getRoutineType());
+    }
+
+    @Test
+    public void ensureDailyRoutineCopiesWeekendTasksOnSaturday() {
+        User user = userWithWeekendTasks("ensure-saturday@example.com", "Long run", "Brunch");
+        DailyRoutine saturday = dailyRoutineService.ensureDailyRoutine(user.getId(), next(DayOfWeek.SATURDAY));
+        List<String> names = saturday.getTasks().stream().map(DailyTask::getName).toList();
+        assertEquals(List.of("Long run", "Brunch"), names);
     }
 }

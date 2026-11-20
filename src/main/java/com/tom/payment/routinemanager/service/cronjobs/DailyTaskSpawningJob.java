@@ -1,6 +1,5 @@
 package com.tom.payment.routinemanager.service.cronjobs;
 
-import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,19 +32,7 @@ public class DailyTaskSpawningJob {
     }
 
     private void spawnDailyRoutineForUser(User user) {
-        LocalDate now = LocalDate.now();
-        // Check if weekday or weekend
-        boolean hasWeekendRoutine = now.getDayOfWeek().getValue() >= 6;
-        if (hasWeekendRoutine) {
-            if (user.getWeekendDefaultRoutine().isPresent()) {
-                dailyRoutineService.spawnWeekendRoutineForUser(user, user.getWeekendDefaultRoutine().get());
-            } else {
-                dailyRoutineService.spawnDailyRoutineForUser(user);
-            }
-        } else {
-            dailyRoutineService.spawnDailyRoutineForUser(user);
-        }
+        // Weekday vs weekend template is chosen in DefaultRoutineService.resolveTemplateFor.
+        dailyRoutineService.spawnDailyRoutineForUser(user);
     }
-
-    
 }

@@ -50,7 +50,7 @@ public class AiRoutineFunctions {
         return request -> {
             try {
                 User user = userService.getUserById(request.userId());
-                DefaultRoutine routine = defaultRoutineRepository.findByUser(user)
+                DefaultRoutine routine = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY)
                         .orElseThrow(() -> new RuntimeException("Default routine not found for user"));
 
                 List<RoutineTaskTemplate> tasks = request.tasks().stream().map(input -> {
@@ -77,7 +77,7 @@ public class AiRoutineFunctions {
         return request -> {
             try {
                 User user = userService.getUserById(request.userId());
-                DefaultRoutine routine = defaultRoutineRepository.findByUser(user)
+                DefaultRoutine routine = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY)
                         .orElseThrow(() -> new RuntimeException("Default routine not found for user"));
 
                 List<RoutineTaskTemplate> tasksToUpdate = new ArrayList<>();
@@ -115,7 +115,7 @@ public class AiRoutineFunctions {
         return request -> {
             try {
                 User user = userService.getUserById(request.userId());
-                DefaultRoutine routine = defaultRoutineRepository.findByUser(user)
+                DefaultRoutine routine = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY)
                         .orElseThrow(() -> new RuntimeException("Default routine not found for user"));
 
                 List<UUID> idsToDelete = routine.getTasks().stream()

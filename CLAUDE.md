@@ -44,8 +44,8 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 
 ### Domain model
 
-- **User** — `UUID` id, email, username, `onboardCompleted` flag. Has `@OneToMany` default routines. On registration, `UserService.createUserAndDefaultRoutine()` creates the user + a "Default Routine" (type DAILY).
-- **DefaultRoutine** — template with `RoutineTypeEnum` (DAILY/WEEKEND). Owned by a User. Contains `RoutineTaskTemplate` tasks. Used as the blueprint for cloning into daily routines.
+- **User** — `UUID` id, email, username, `onboardCompleted` flag. Has `@OneToMany` default routines. On registration, `UserService.createUserAndDefaultRoutine()` creates the user + two empty default routines: "Weekday Routine" (DAILY) and "Weekend Routine" (WEEKEND).
+- **DefaultRoutine** — template with `RoutineTypeEnum` (DAILY = weekday, WEEKEND). Owned by a User; **at most one per type per user** — always look up with `findByUserAndRoutineType` (there is deliberately no `findByUser`). Contains `RoutineTaskTemplate` tasks. Used as the blueprint for cloning into daily routines.
 - **DailyRoutine** — a specific date's routine for a user. Auto-created from the default routine template. Contains `DailyTask` instances.
 - **DailyTask** / **RoutineTaskTemplate** — both have `startTime` (LocalTime), `durationMinutes`, name, description. DailyTask adds `completed` boolean. Both compute `endTime` as a read-only JSON property.
 - **RefreshToken** — persisted JWT refresh token with expiry and revocation tracking.
@@ -55,7 +55,8 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 - **`getOrCreateDailyRoutine()`** — for *today only*, auto-clones from the default routine if missing. For non-today dates, returns a transient (unsaved) empty routine — no silent writes.
 - **`ensureDailyRoutine()`** — explicit intent-driven create for any date. Always persists and clones from default.
 - **Task overlap handling** — `TaskTimeFunctions.shiftOverlappingTasks()` / `standardiseTasks()` push conflicting tasks later in time when a new task is inserted.
-- **Weekend vs weekday** — the midnight cron job (`DailyTaskSpawningJob`) checks `DayOfWeek` and clones from the weekend default routine if available, otherwise falls back to the weekday one.
+- **Weekend vs weekday** — `DefaultRoutineService.resolveTemplateFor(user, date)` picks the template for every new day (`getOrCreateDailyRoutine`, `ensureDailyRoutine`, the midnight `DailyTaskSpawningJob`): Saturday/Sunday use the WEEKEND routine if it has at least one task, otherwise the DAILY one.
+- **`GET /api/v1/default-routine/users/{userId}?type=DAILY|WEEKEND`** (default DAILY) — `type=WEEKEND` creates an empty weekend routine if the user has none (idempotent; for users from before weekend routines). Invalid `type` → 400.
 
 ### Auth flow
 

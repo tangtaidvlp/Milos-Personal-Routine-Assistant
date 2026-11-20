@@ -50,8 +50,11 @@ public class DefaultRoutineController {
     }
 
     @GetMapping("/users/{userId}")
-    public ResponseEntity<DefaultRoutine> getDefaultRoutineForUser(@PathVariable UUID userId) {
-        DefaultRoutine routine = routineService.getDefaultRoutineByUserId(userId);
+    public ResponseEntity<DefaultRoutine> getDefaultRoutineForUser(
+            @PathVariable UUID userId,
+            @RequestParam(name = "type", defaultValue = "DAILY") DefaultRoutine.RoutineTypeEnum type) {
+        // type=WEEKEND creates an empty weekend routine if missing (contracts/default-routine-api.md).
+        DefaultRoutine routine = routineService.getOrCreateDefaultRoutine(userId, type);
         return ResponseEntity.ok(routine);
     }
 

@@ -7,5 +7,5 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface DefaultRoutineRepository extends JpaRepository<DefaultRoutine, UUID> {
-    Optional<DefaultRoutine> findByUser(User user);
+    Optional<DefaultRoutine> findByUserAndRoutineType(User user, DefaultRoutine.RoutineTypeEnum routineType);
 }

@@ -1,11 +1,15 @@
 package com.tom.payment.routinemanager.service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.tom.payment.routinemanager.funcs.TaskTimeFunctions;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
@@ -20,6 +24,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DefaultRoutineService {
 
+    public static final String WEEKDAY_ROUTINE_NAME = "Weekday Routine";
+    public static final String WEEKEND_ROUTINE_NAME = "Weekend Routine";
+
     private final UserService userService;
     private final DefaultRoutineRepository defaultRoutineRepository;
     private final RoutineTaskTemplateRepository routineTaskTemplateRepository;
@@ -27,10 +34,13 @@ public class DefaultRoutineService {
     @Transactional
     public DefaultRoutine createDefaultRoutine(UUID userId, DefaultRoutine defaultRoutine) {
         User user = userService.getUserById(userId);
-        
-        // If a default routine already exists for this user, we might want to update it instead or throw error.
-        // For simplicity, let's just use findByUser.
-        return defaultRoutineRepository.findByUser(user)
+        DefaultRoutine.RoutineTypeEnum type = defaultRoutine.getRoutineType() != null
+                ? defaultRoutine.getRoutineType()
+                : DefaultRoutine.RoutineTypeEnum.DAILY;
+        defaultRoutine.setRoutineType(type);
+
+        // A user has at most one default routine per type: overwrite it if it already exists.
+        return defaultRoutineRepository.findByUserAndRoutineType(user, type)
                 .map(existing -> {
                     existing.setName(defaultRoutine.getName());
                     existing.getTasks().clear();
@@ -72,10 +82,50 @@ public class DefaultRoutineService {
     }
 
     @Transactional(readOnly = true)
-    public DefaultRoutine getDefaultRoutineByUserId(UUID userId) {
+    public DefaultRoutine getDefaultRoutineByUserId(UUID userId, DefaultRoutine.RoutineTypeEnum type) {
         User user = userService.getUserById(userId);
-        return defaultRoutineRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Default routine not found for user"));
+        return defaultRoutineRepository.findByUserAndRoutineType(user, type)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user"));
+    }
+
+    /**
+     * Weekday routine: must exist (404 otherwise).
+     * Weekend routine: created empty on first request for users from before weekend routines existed.
+     */
+    @Transactional
+    public DefaultRoutine getOrCreateDefaultRoutine(UUID userId, DefaultRoutine.RoutineTypeEnum type) {
+        // GET-creates by design: see specs/002-onboarding-instruction/research.md R2
+        User user = userService.getUserById(userId);
+        return defaultRoutineRepository.findByUserAndRoutineType(user, type)
+                .orElseGet(() -> {
+                    if (type != DefaultRoutine.RoutineTypeEnum.WEEKEND) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user");
+                    }
+                    DefaultRoutine weekend = new DefaultRoutine();
+                    weekend.setName(WEEKEND_ROUTINE_NAME);
+                    weekend.setRoutineType(DefaultRoutine.RoutineTypeEnum.WEEKEND);
+                    weekend.setUser(user);
+                    return defaultRoutineRepository.save(weekend);
+                });
+    }
+
+    /**
+     * The default routine a given date is copied from (research R3):
+     * Saturday/Sunday use the weekend routine if it has at least one task, otherwise the weekday routine.
+     */
+    @Transactional(readOnly = true)
+    public DefaultRoutine resolveTemplateFor(User user, LocalDate date) {
+        boolean weekend = date.getDayOfWeek().getValue() >= DayOfWeek.SATURDAY.getValue();
+        if (weekend) {
+            var weekendRoutine = defaultRoutineRepository
+                    .findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.WEEKEND)
+                    .filter(routine -> !routine.getTasks().isEmpty());
+            if (weekendRoutine.isPresent()) {
+                return weekendRoutine.get();
+            }
+        }
+        return defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user"));
     }
 
     @Transactional

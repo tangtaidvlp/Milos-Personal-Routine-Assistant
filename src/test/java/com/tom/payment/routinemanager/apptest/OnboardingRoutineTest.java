@@ -2,6 +2,7 @@ package com.tom.payment.routinemanager.apptest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,8 +10,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.model.RoutineTaskTemplate;
+import com.tom.payment.routinemanager.model.User;
+import com.tom.payment.routinemanager.repository.DefaultRoutineRepository;
+import com.tom.payment.routinemanager.repository.UserRepository;
+import com.tom.payment.routinemanager.service.DefaultRoutineService;
+import com.tom.payment.routinemanager.service.UserService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +43,18 @@ public class OnboardingRoutineTest {
     private MockMvc mockMvc;
 
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private DefaultRoutineService defaultRoutineService;
+
+    @Autowired
+    private DefaultRoutineRepository defaultRoutineRepository;
 
     @BeforeEach
     void setup() {
@@ -139,5 +159,79 @@ public class OnboardingRoutineTest {
         assertNotNull(createdTasks);
         assertEquals(1, createdTasks.size());
         assertEquals("Single Task", createdTasks.get(0).path("name").asText());
+    }
+
+    // --- 002-onboarding-instruction: one default routine per type (research R2, contracts/default-routine-api.md) ---
+
+    private static String uniqueEmail(String prefix) {
+        return prefix + "-" + UUID.randomUUID() + "@example.com";
+    }
+
+    private JsonNode getRoutine(String userId, String typeOrNull) throws Exception {
+        var request = get("/api/v1/default-routine/users/{userId}", userId);
+        if (typeOrNull != null) {
+            request = request.param("type", typeOrNull);
+        }
+        MvcResult result = mockMvc.perform(request).andExpect(status().isOk()).andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString());
+    }
+
+    @Test
+    void registrationCreatesEmptyWeekdayAndWeekendRoutines() throws Exception {
+        String email = uniqueEmail("two-routines");
+        User user = userService.createUserAndDefaultRoutine(new User(email, email));
+
+        long routines = defaultRoutineRepository.findAll().stream()
+                .filter(routine -> routine.getUser().getId().equals(user.getId()))
+                .count();
+        assertEquals(2, routines);
+
+        JsonNode weekday = getRoutine(user.getId().toString(), "DAILY");
+        assertEquals("Weekday Routine", weekday.path("name").asText());
+        assertEquals("DAILY", weekday.path("routineType").asText());
+        assertEquals(0, weekday.path("tasks").size());
+
+        JsonNode weekend = getRoutine(user.getId().toString(), "WEEKEND");
+        assertEquals("Weekend Routine", weekend.path("name").asText());
+        assertEquals("WEEKEND", weekend.path("routineType").asText());
+        assertEquals(0, weekend.path("tasks").size());
+    }
+
+    @Test
+    void weekendRoutineIsCreatedOnFirstRequestAndReusedAfterwards() throws Exception {
+        // An existing user from before this feature: only a weekday routine.
+        String email = uniqueEmail("legacy-user");
+        User user = userRepository.save(new User(email, email));
+        DefaultRoutine weekdayOnly = new DefaultRoutine();
+        weekdayOnly.setName("Default Routine");
+        weekdayOnly.setRoutineType(DefaultRoutine.RoutineTypeEnum.DAILY);
+        defaultRoutineService.createDefaultRoutine(user.getId(), weekdayOnly);
+        assertTrue(defaultRoutineRepository
+                .findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.WEEKEND).isEmpty());
+
+        JsonNode first = getRoutine(user.getId().toString(), "WEEKEND");
+        JsonNode second = getRoutine(user.getId().toString(), "WEEKEND");
+
+        assertEquals("WEEKEND", first.path("routineType").asText());
+        assertEquals(0, first.path("tasks").size());
+        assertEquals(first.path("id").asText(), second.path("id").asText());
+        assertEquals(first.path("id").asText(),
+                defaultRoutineService.getOrCreateDefaultRoutine(user.getId(), DefaultRoutine.RoutineTypeEnum.WEEKEND)
+                        .getId().toString());
+    }
+
+    @Test
+    void routineTypeDefaultsToWeekday() throws Exception {
+        String email = uniqueEmail("default-type");
+        User user = userService.createUserAndDefaultRoutine(new User(email, email));
+        assertEquals("DAILY", getRoutine(user.getId().toString(), null).path("routineType").asText());
+    }
+
+    @Test
+    void unknownRoutineTypeIsRejected() throws Exception {
+        String email = uniqueEmail("bad-type");
+        User user = userService.createUserAndDefaultRoutine(new User(email, email));
+        mockMvc.perform(get("/api/v1/default-routine/users/{userId}", user.getId()).param("type", "FOO"))
+                .andExpect(status().isBadRequest());
     }
 }

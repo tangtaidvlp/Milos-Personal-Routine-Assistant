@@ -1,0 +1,13 @@
+# The Dockerfile only copies build/libs/*.jar, so keep that and drop the rest.
+.git/
+.gradle/
+.idea/
+.vscode/
+*.iml
+*.log
+.env*
+.DS_Store
+build/*
+!build/libs/
+src/
+release/

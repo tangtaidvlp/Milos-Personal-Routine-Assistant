@@ -29,10 +29,16 @@ public class UserService {
     public User createUserAndDefaultRoutine(User user) {
         User savedUser = userRepository.save(user);
         
-        DefaultRoutine defaultRoutine = new DefaultRoutine();
-        defaultRoutine.setName("Default Routine");
-        defaultRoutine.setRoutineType(DefaultRoutine.RoutineTypeEnum.DAILY);
-        routineService.createDefaultRoutine(savedUser.getId(), defaultRoutine);
+        // One empty default routine per type: weekday (DAILY) and weekend (specs/002-onboarding-instruction).
+        DefaultRoutine weekday = new DefaultRoutine();
+        weekday.setName(DefaultRoutineService.WEEKDAY_ROUTINE_NAME);
+        weekday.setRoutineType(DefaultRoutine.RoutineTypeEnum.DAILY);
+        routineService.createDefaultRoutine(savedUser.getId(), weekday);
+
+        DefaultRoutine weekend = new DefaultRoutine();
+        weekend.setName(DefaultRoutineService.WEEKEND_ROUTINE_NAME);
+        weekend.setRoutineType(DefaultRoutine.RoutineTypeEnum.WEEKEND);
+        routineService.createDefaultRoutine(savedUser.getId(), weekend);
         
         return savedUser;
     }
