@@ -7,6 +7,11 @@ spring:
     url: jdbc:h2:mem:testdb
     driver-class-name: org.h2.Driver
 
+  jpa:
+    # application.yml pins the PostgreSQL dialect; H2 needs its own (e.g. row
+    # locks: Postgres emits FOR NO KEY UPDATE, which H2 rejects).
+    database-platform: org.hibernate.dialect.H2Dialect
+
   h2:
     console:
       enabled: true

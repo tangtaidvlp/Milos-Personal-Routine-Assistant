@@ -4,6 +4,49 @@ app:
     # by APP_CORS_ALLOWED_ORIGINS with no rebuild.
     # An origin is scheme://host[:port] — no path, no trailing slash.
     allowed-origins: https://tangtaidvlp.github.io
+  chat:
+    # Messages (user + Buddy) since the last summary before Buddy's context is compacted.
+    compaction-threshold: 20
+    # Max messages returned per chat-history request (lazy-load page size).
+    history-page-size: 20
+  # Task colour palette (specs/F005-i-want-color-to-be-persisted), served at GET /api/v1/task-palette.
+  # List order = round-robin order for auto-assigned colours.
+  # Never rename or remove an id once released: tasks store it. Only add entries or recolour them.
+  # Keep the id list in sync with TaskColorService.PALETTE_IDS_HINT (used in Buddy's tool descriptions).
+  task-palette:
+    colors:
+      - id: green
+        label: Green
+        light: { accent: "#10A36B", bg: "#E3F5EE" }
+        dark: { accent: "#34C98E", bg: "#1B3836" }
+      - id: orange
+        label: Orange
+        light: { accent: "#E07B39", bg: "#FDF0E5" }
+        dark: { accent: "#F0954F", bg: "#392F2C" }
+      - id: blue
+        label: Blue
+        light: { accent: "#1A6FD4", bg: "#E8F1FC" }
+        dark: { accent: "#5B9DF0", bg: "#213145" }
+      - id: grey
+        label: Grey
+        light: { accent: "#AAB3BF", bg: "#F6F7F9" }
+        dark: { accent: "#9AA4B1", bg: "#2B323B" }
+      - id: slate
+        label: Slate
+        light: { accent: "#6F7E94", bg: "#EEF1F5" }
+        dark: { accent: "#8E9CB2", bg: "#29303C" }
+      - id: peach
+        label: Peach
+        light: { accent: "#EEB692", bg: "#FEF7F1" }
+        dark: { accent: "#E8B08A", bg: "#383435" }
+      - id: pink
+        label: Pink
+        light: { accent: "#D94A6A", bg: "#FCEAEE" }
+        dark: { accent: "#EE6F8C", bg: "#392935" }
+      - id: purple
+        label: Purple
+        light: { accent: "#7C5CD6", bg: "#F0ECFB" }
+        dark: { accent: "#9D84EA", bg: "#2C2D45" }
 
 spring:
   application:

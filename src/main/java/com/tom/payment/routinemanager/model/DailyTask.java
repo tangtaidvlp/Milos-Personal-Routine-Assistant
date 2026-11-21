@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -32,6 +33,9 @@ public class DailyTask {
     private LocalTime startTime;
     private int durationMinutes;
     private boolean completed;
+    /** Palette id or #RRGGBB (specs/F005). Null only on tasks created before F005. */
+    @Column(length = 32)
+    private String color;
 
     @JsonBackReference
     @ManyToOne

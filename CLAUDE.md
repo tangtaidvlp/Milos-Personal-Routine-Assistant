@@ -47,7 +47,8 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 - **User** — `UUID` id, email, username, `onboardCompleted` flag. Has `@OneToMany` default routines. On registration, `UserService.createUserAndDefaultRoutine()` creates the user + two empty default routines: "Weekday Routine" (DAILY) and "Weekend Routine" (WEEKEND).
 - **DefaultRoutine** — template with `RoutineTypeEnum` (DAILY = weekday, WEEKEND). Owned by a User; **at most one per type per user** — always look up with `findByUserAndRoutineType` (there is deliberately no `findByUser`). Contains `RoutineTaskTemplate` tasks. Used as the blueprint for cloning into daily routines.
 - **DailyRoutine** — a specific date's routine for a user. Auto-created from the default routine template. Contains `DailyTask` instances.
-- **DailyTask** / **RoutineTaskTemplate** — both have `startTime` (LocalTime), `durationMinutes`, name, description. DailyTask adds `completed` boolean. Both compute `endTime` as a read-only JSON property.
+- **DailyTask** / **RoutineTaskTemplate** — both have `startTime` (LocalTime), `durationMinutes`, name, description, `color`. DailyTask adds `completed` boolean. Both compute `endTime` as a read-only JSON property.
+- **Task colors (F005, `specs/F005-i-want-color-to-be-persisted/`)** — `color` is a palette id (e.g. `green`, follows the UI theme) or an exact `#RRGGBB`. The palette lives in `application.yml` (`app.task-palette.colors`, `TaskPaletteProperties`, validated at startup; list order = round-robin order; never rename/remove an id). `TaskColorService` assigns colors on every create path (`addDefaultTasks`, `addDailyTasks`, full-replace of a default routine; AI tools and legacy `AiRoutineFunctions` go through these): no color → `palette[colorCursor]` and the routine's `colorCursor` advances; the next id sent explicitly also advances; any other valid color is kept without advancing; same-named tasks in one request share a color. Updates change the color only when one is sent (null keeps it). Invalid colors → 400. Routines expose a read-only `nextColor` (filled by the service; `colorCursor` is `@JsonIgnore`). Cloning a default routine into a day copies each task's color and the cursor. Tasks from before F005 have `color = null`; there is deliberately no backfill or special handling.
 - **RefreshToken** — persisted JWT refresh token with expiry and revocation tracking.
 
 ### Key service behaviors
@@ -68,11 +69,16 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 ### AI integration
 
 - `AiChatService` interface with two implementations switched by `spring.ai.active` property:
-  - **`GeminiAiChatService`** (`spring.ai.active=true`, default) — Spring AI with Gemini (model set in `application.yml`, currently `gemini-3.6-flash`). Uses `@Tool`-annotated methods in `DailyRoutineAiTools` and `DefaultRoutineAiTools` for CRUD operations. Conversation memory: in-memory window of last 20 messages per conversation.
+  - **`GeminiAiChatService`** (`spring.ai.active=true`, default) — Spring AI with Gemini (model set in `application.yml`, currently `gemini-3.6-flash`). Uses `@Tool`-annotated methods in `DailyRoutineAiTools` and `DefaultRoutineAiTools` for CRUD operations. Stateless: no chat-memory advisor; Buddy's context is passed in as `ChatContext`.
   - **`MockAiChatService`** (`spring.ai.active=false`) — returns echo responses, no Spring AI beans required.
 - `AiRoutineFunctions` is a **legacy** function-calling approach using `java.util.function.Function` beans — it coexists but `GeminiAiChatService` uses the `@Tool` approach.
 - Gemini API key is configured via `GEMINI_API_KEY` environment variable.
-- Past-date daily routines are frozen for the AI: no time schedule changes allowed, only content/completion edits.
+- **Chat history (F004, `specs/F004-…`)** — `service/chat/ChatConversationService` stores each exchange in `chat_conversation` / `chat_message`: one conversation per (user, default routine), which includes onboarding chats, and one per (user, date). An exchange is stored only after the AI replies, so a failed call stores nothing. Buddy's context = `summary_text` + messages after `summarized_through_seq`, rebuilt from the DB on every message, so it survives restarts.
+- **Compaction** — `ChatCompactionService` runs `@Async` after commit. Once `app.chat.compaction-threshold` (default 20) messages are past the cursor, `ChatSummarizer` folds them into the summary: `GeminiChatSummarizer` uses its own tool-less client, `MockChatSummarizer` is used when AI is off. Visible messages never change. A failure is logged and retried after the next exchange.
+- History: `GET /api/ai/chat/default-routine/{userId}/{routineId}/messages` and `GET /api/ai/chat/daily-routine/{userId}/{date}/messages`. Both page with `?before=<seq>&limit=` (max `app.chat.history-page-size`, 20) and return `{messages (oldest→newest), hasMore, nextBefore}`. `CurrentUserGuard` returns 404 for an unknown user and 403 when the JWT user ≠ `{userId}`. The routine must belong to the user, otherwise 404.
+- `application-fast.yml` sets `H2Dialect`: the global PostgreSQL dialect emits `FOR NO KEY UPDATE` for row locks, which H2 rejects.
+- Past-date daily routines are frozen for the AI: no time schedule changes allowed, only content/completion/color edits.
+- Buddy's task tools take an optional `color` that must be a palette id (case-insensitive); hex values and unknown names are refused with a reply listing the palette. The id list in the tool descriptions is `TaskColorService.PALETTE_IDS_HINT` — keep it in sync with `application.yml`.
 
 ### API endpoints summary
 
@@ -83,6 +89,7 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 | `/api/routine-manager/daily-routine/**` | `DailyRoutineController` | CRUD for daily routines & tasks |
 | `/api/ai/chat/**` | `AIController` | AI chat for default & daily routines |
 | `/api/users/**` | `UserController` | Onboarding completion |
+| `/api/v1/task-palette` | `TaskPaletteController` | Task color palette (GET), round-robin order |
 | `/api/support/cron/**` | `CronSupportController` | Manual cron trigger (local/fast/test only) |
 
 Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `funcs`, `model`, `repository`, `service/aitools`, `service/cronjobs`).
@@ -92,6 +99,7 @@ Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `f
 - **GitHub Actions** (`.github/workflows/gradle-publish.yml`): builds with Gradle, builds Docker image, pushes to AWS ECR (`milos` repo), deploys to EC2 via SSH.
 - **Docker**: `Dockerfile` uses `eclipse-temurin:25` base. `docker-compose.yml` runs PostgreSQL 17 (`trixie` tag) on port 5469.
 - Tests are skipped in CI (`-x test`).
+- **Schema**: prod is `ddl-auto: validate` with no Flyway. New tables or columns need a DDL script under `db/` applied to the prod DB *before* the new image starts. F004: `db/F004-chat-history.sql`. F005: `db/F005-task-color.sql`.
 
 ## Conventions
 

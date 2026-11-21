@@ -3,30 +3,26 @@ package com.tom.payment.routinemanager.service;
 import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tom.payment.routinemanager.funcs.JsonFunc;
 import com.tom.payment.routinemanager.model.DailyRoutine;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.service.aitools.DailyRoutineAiTools;
 import com.tom.payment.routinemanager.service.aitools.DefaultRoutineAiTools;
+import com.tom.payment.routinemanager.service.chat.ChatContext;
 
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Wires the Gemini ChatClient with our @Tool-annotated tool beans and
  * handles the chat interaction for each user.
+ *
+ * <p>Stateless: there is no chat-memory advisor. Earlier conversation comes in
+ * as a {@link ChatContext} built from the database by ChatConversationService,
+ * so Buddy keeps context across restarts and a failed call stores nothing.
  */
 @Slf4j
 @Service
@@ -39,7 +35,6 @@ public class GeminiAiChatService implements AiChatService {
 
     public GeminiAiChatService(
             ChatClient.Builder chatClientBuilder,
-            @Qualifier("defaultRoutineChatMemory") ChatMemory chatMemory,
             JsonFunc jsonFunc,
             DefaultRoutineAiTools defaultRoutineAiTools,
             DailyRoutineAiTools dailyRoutineAiTools) {
@@ -54,7 +49,6 @@ public class GeminiAiChatService implements AiChatService {
                         If the user asks about things outside of daily routines, default routines, or tasks, politely inform them that you can only assist with those topics.
                         """)
                 .defaultTools(defaultRoutineAiTools, dailyRoutineAiTools)
-                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .build();
         this.jsonFunc = jsonFunc;
     }
@@ -66,28 +60,28 @@ public class GeminiAiChatService implements AiChatService {
                         + ". You MUST use this ID whenever a tool requires a 'userId' parameter. "
                         + "Today's date is: " + java.time.LocalDate.now() + ".")
                 .user(userMessage)
-                .advisors(a -> a.param(org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID, userId.toString()))
                 .call()
                 .content();
     }
 
     @Override
-    public String defaultRoutineChat(UUID userId, DefaultRoutine defaultRoutine, String userMessage) {
+    public String defaultRoutineChat(UUID userId, DefaultRoutine defaultRoutine, ChatContext context, String userMessage) {
         return chatClient.prompt()
                 .system("Current user's ID is: " + userId
                         + ". You MUST use this ID whenever a tool requires a 'userId' parameter. "
                         + "User is asking to interact on this default routine: " + jsonFunc.parseToJson(defaultRoutine) + ". "
                         + "ID is ID. "
                         + "tasks are the routine tasks item, you need to identify which tasks user are mention base on their prompt and perform the request. "
-                        + "Today's date is: " + java.time.LocalDate.now() + ".")
+                        + "Today's date is: " + java.time.LocalDate.now() + "."
+                        + summaryBlock(context))
+                .messages(context.recentMessages())
                 .user(userMessage)
-                .advisors(a -> a.param(org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID, userId.toString().concat("-"+defaultRoutine.getId().toString())))
                 .call()
                 .content();
     }
 
     @Override
-    public String dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, java.time.LocalDate date, String userMessage) {
+    public String dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, java.time.LocalDate date, ChatContext context, String userMessage) {
         boolean isPastDate = date.isBefore(java.time.LocalDate.now());
         return chatClient.prompt()
                 .system("Current user's ID is: " + userId
@@ -100,25 +94,19 @@ public class GeminiAiChatService implements AiChatService {
                                 ? "This date is in the past. Do NOT add new tasks or change any task's time schedule (startTime/durationMinutes) for this date. "
                                         + "Only completed status, name, or description may be changed. Politely explain this limitation if the user asks to reschedule. "
                                 : "")
-                        + "Today's date is: " + java.time.LocalDate.now() + ".")
+                        + "Today's date is: " + java.time.LocalDate.now() + "."
+                        + summaryBlock(context))
+                .messages(context.recentMessages())
                 .user(userMessage)
-                .advisors(a -> a.param(org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID, userId.toString().concat("-daily-" + date.toString())))
                 .call()
                 .content();
     }
-}
 
-@Slf4j
-@Configuration
-class ChatMemoryConfig {
-
-    @Bean
-    @Qualifier("defaultRoutineChatMemory")
-    public ChatMemory chatMemory() {
-        // Keeps the last N messages per conversation in memory (default in-memory repository)
-        log.debug("Initializing ChatMemory with a maximum of 20 messages per conversation.");
-        return MessageWindowChatMemory.builder()
-                .maxMessages(20)
-                .build();
+    private static String summaryBlock(ChatContext context) {
+        if (context.summary() == null || context.summary().isBlank()) {
+            return "";
+        }
+        return "\n\nSummary of the earlier conversation with this user (older messages are not repeated below):\n"
+                + context.summary();
     }
 }

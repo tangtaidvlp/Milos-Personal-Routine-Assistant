@@ -29,7 +29,7 @@ public class UserService {
     public User createUserAndDefaultRoutine(User user) {
         User savedUser = userRepository.save(user);
         
-        // One empty default routine per type: weekday (DAILY) and weekend (specs/002-onboarding-instruction).
+        // One empty default routine per type: weekday (DAILY) and weekend (specs/.done.002-onboarding-instruction).
         DefaultRoutine weekday = new DefaultRoutine();
         weekday.setName(DefaultRoutineService.WEEKDAY_ROUTINE_NAME);
         weekday.setRoutineType(DefaultRoutine.RoutineTypeEnum.DAILY);

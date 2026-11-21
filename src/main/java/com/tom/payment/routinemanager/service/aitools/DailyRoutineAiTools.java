@@ -16,6 +16,7 @@ import com.tom.payment.routinemanager.model.DailyTask;
 import com.tom.payment.routinemanager.model.User;
 import com.tom.payment.routinemanager.repository.DailyRoutineRepository;
 import com.tom.payment.routinemanager.service.DailyRoutineService;
+import com.tom.payment.routinemanager.service.TaskColorService;
 import com.tom.payment.routinemanager.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,17 @@ public class DailyRoutineAiTools {
     private final DailyRoutineService dailyRoutineService;
     private final UserService userService;
     private final DailyRoutineRepository dailyRoutineRepository;
+    private final TaskColorService taskColorService;
 
-    public record DailyTaskInput(String name, String description, String startTime, int durationMinutes, boolean completed) {}
-    public record DailyTaskUpdateInput(String taskId, String newName, String description, String startTime, Integer durationMinutes, Boolean completed) {}
+    public record DailyTaskInput(String name, String description, String startTime, int durationMinutes, boolean completed,
+            @ToolParam(required = false, description = "Optional task color: a palette id (" + TaskColorService.PALETTE_IDS_HINT + "). Only set it when the user asks for a color; never use hex codes.") String color) {}
+    public record DailyTaskUpdateInput(String taskId, String newName, String description, String startTime, Integer durationMinutes, Boolean completed,
+            @ToolParam(required = false, description = "Optional task color: a palette id (" + TaskColorService.PALETTE_IDS_HINT + "). Only set it when the user asks for a color; never use hex codes.") String color) {}
 
     @Tool(description = "Add one or more tasks to the user's daily routine for a specific date. " +
-            "The date must be in yyyy-MM-dd format. Each task needs name, description, startTime (HH:mm), durationMinutes, and completed status.")
+            "The date must be in yyyy-MM-dd format. Each task needs name, description, startTime (HH:mm), durationMinutes, and completed status. " +
+            "Leave color empty unless the user asks for one; the app assigns colors. " +
+            "If a task crosses midnight, split it into 2 tasks with the SAME name so they share a color.")
     public String addDailyTasks(
             @ToolParam(description = "The UUID of the user") String userId,
             @ToolParam(description = "The date in yyyy-MM-dd format") String date,
@@ -46,8 +52,15 @@ public class DailyRoutineAiTools {
             DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, targetDate)
                     .orElseThrow(() -> new RuntimeException("Daily routine not found for date: " + date));
 
+            for (DailyTaskInput input : tasks) {
+                if (input.color() != null && taskColorService.paletteIdFor(input.color()).isEmpty()) {
+                    return "No tasks added. " + taskColorService.unknownColorMessage(input.color());
+                }
+            }
+
             List<DailyTask> entities = tasks.stream().map(input -> {
                 DailyTask t = new DailyTask();
+                t.setColor(taskColorService.paletteIdFor(input.color()).orElse(null));
                 t.setName(input.name());
                 t.setDescription(input.description());
                 t.setStartTime(LocalTime.parse(input.startTime()));
@@ -64,7 +77,7 @@ public class DailyRoutineAiTools {
     }
 
     @Tool(description = "Update one or more tasks in the user's daily routine for a specific date. " +
-            "Identify each task by its taskId. Can change name, time, duration, or completed status.")
+            "Identify each task by its taskId. Can change name, time, duration, completed status, or color (palette id).")
     public String updateDailyTasks(
             @ToolParam(description = "The UUID of the user") String userId,
             @ToolParam(description = "The date in yyyy-MM-dd format") String date,
@@ -94,6 +107,14 @@ public class DailyRoutineAiTools {
                 details.setDurationMinutes(!isPastDate && requestedDuration != null ? requestedDuration : existing.getDurationMinutes());
                 Boolean requestedCompleted = u.completed();
                 details.setCompleted(requestedCompleted != null ? requestedCompleted : existing.isCompleted());
+                // Colour is content, not schedule, so past days may change it too.
+                if (u.color() != null) {
+                    var colorId = taskColorService.paletteIdFor(u.color());
+                    if (colorId.isEmpty()) {
+                        return "No tasks updated. " + taskColorService.unknownColorMessage(u.color());
+                    }
+                    details.setColor(colorId.get());
+                }
                 toUpdate.add(details);
             }
 

@@ -30,6 +30,7 @@ public class DefaultRoutineService {
     private final UserService userService;
     private final DefaultRoutineRepository defaultRoutineRepository;
     private final RoutineTaskTemplateRepository routineTaskTemplateRepository;
+    private final TaskColorService taskColorService;
 
     @Transactional
     public DefaultRoutine createDefaultRoutine(UUID userId, DefaultRoutine defaultRoutine) {
@@ -44,20 +45,23 @@ public class DefaultRoutineService {
                 .map(existing -> {
                     existing.setName(defaultRoutine.getName());
                     existing.getTasks().clear();
+                    assignColors(existing, defaultRoutine.getTasks());
                     if (defaultRoutine.getTasks() != null) {
                         defaultRoutine.getTasks().forEach(task -> {
                             task.setDefaultRoutine(existing);
                             existing.getTasks().add(task);
                         });
                     }
-                    return defaultRoutineRepository.save(existing);
+                    return taskColorService.fillNextColor(defaultRoutineRepository.save(existing));
                 })
                 .orElseGet(() -> {
                     defaultRoutine.setUser(user);
+                    defaultRoutine.setColorCursor(0);
+                    assignColors(defaultRoutine, defaultRoutine.getTasks());
                     if (defaultRoutine.getTasks() != null) {
                         defaultRoutine.getTasks().forEach(task -> task.setDefaultRoutine(defaultRoutine));
                     }
-                    return defaultRoutineRepository.save(defaultRoutine);
+                    return taskColorService.fillNextColor(defaultRoutineRepository.save(defaultRoutine));
                 });
     }
 
@@ -69,8 +73,9 @@ public class DefaultRoutineService {
         
         existing.setName(defaultRoutine.getName());
         
-        // Simple update: clear and add new tasks
+        // Simple update: clear and add new tasks (recreated tasks go through colour assignment)
         existing.getTasks().clear();
+        assignColors(existing, defaultRoutine.getTasks());
         if (defaultRoutine.getTasks() != null) {
             defaultRoutine.getTasks().forEach(task -> {
                 task.setDefaultRoutine(existing);
@@ -78,14 +83,14 @@ public class DefaultRoutineService {
             });
         }
         
-        return defaultRoutineRepository.save(existing);
+        return taskColorService.fillNextColor(defaultRoutineRepository.save(existing));
     }
 
     @Transactional(readOnly = true)
     public DefaultRoutine getDefaultRoutineByUserId(UUID userId, DefaultRoutine.RoutineTypeEnum type) {
         User user = userService.getUserById(userId);
-        return defaultRoutineRepository.findByUserAndRoutineType(user, type)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user"));
+        return taskColorService.fillNextColor(defaultRoutineRepository.findByUserAndRoutineType(user, type)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user")));
     }
 
     /**
@@ -94,9 +99,9 @@ public class DefaultRoutineService {
      */
     @Transactional
     public DefaultRoutine getOrCreateDefaultRoutine(UUID userId, DefaultRoutine.RoutineTypeEnum type) {
-        // GET-creates by design: see specs/002-onboarding-instruction/research.md R2
+        // GET-creates by design: see specs/.done.002-onboarding-instruction/research.md R2
         User user = userService.getUserById(userId);
-        return defaultRoutineRepository.findByUserAndRoutineType(user, type)
+        DefaultRoutine routine = defaultRoutineRepository.findByUserAndRoutineType(user, type)
                 .orElseGet(() -> {
                     if (type != DefaultRoutine.RoutineTypeEnum.WEEKEND) {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user");
@@ -107,6 +112,7 @@ public class DefaultRoutineService {
                     weekend.setUser(user);
                     return defaultRoutineRepository.save(weekend);
                 });
+        return taskColorService.fillNextColor(routine);
     }
 
     /**
@@ -132,6 +138,7 @@ public class DefaultRoutineService {
     public List<RoutineTaskTemplate> addDefaultTasks(UUID defaultRoutineId, List<RoutineTaskTemplate> tasks) {
         DefaultRoutine routine = defaultRoutineRepository.findById(defaultRoutineId)
                 .orElseThrow(() -> new RuntimeException("Default routine not found"));
+        assignColors(routine, tasks);
 
         List<RoutineTaskTemplate> savedTasks = tasks.stream().map(task -> {
             task.setDefaultRoutine(routine);
@@ -152,6 +159,11 @@ public class DefaultRoutineService {
             existing.setDescription(details.getDescription());
             existing.setStartTime(details.getStartTime());
             existing.setDurationMinutes(details.getDurationMinutes());
+            // A colour is only changed when one is sent; null keeps it (specs/F005 R4).
+            if (details.getColor() != null) {
+                taskColorService.requireValid(details.getColor());
+                existing.setColor(details.getColor());
+            }
 
             DefaultRoutine routine = existing.getDefaultRoutine();
             if (routine != null) {
@@ -174,6 +186,13 @@ public class DefaultRoutineService {
             }
         });
         routineTaskTemplateRepository.deleteAll(tasks);
+    }
+
+    /** Round-robin colours for tasks about to be created in {@code routine} (specs/F005 data-model §4). */
+    private void assignColors(DefaultRoutine routine, List<RoutineTaskTemplate> newTasks) {
+        int cursor = taskColorService.assign(routine.getColorCursor(), newTasks,
+                RoutineTaskTemplate::getName, RoutineTaskTemplate::getColor, RoutineTaskTemplate::setColor);
+        routine.setColorCursor(cursor);
     }
 
 }

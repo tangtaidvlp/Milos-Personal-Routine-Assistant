@@ -490,6 +490,14 @@ WantedBy=multi-user.target
 
 ## 9. Deployment
 
+> **Before deploying F004 (Buddy chat history):** prod runs `ddl-auto: validate`, so
+> the new tables must exist before the new image starts, or startup fails. Apply the
+> idempotent script once against the prod database first:
+>
+> ```bash
+> psql "$DATABASE_URL" -f db/F004-chat-history.sql
+> ```
+
 Two independent pipelines now, which is the main practical upside of the split —
 a frontend change ships in ~40 seconds with no container restart and no downtime.
 

@@ -28,6 +28,7 @@ public class DailyRoutineService {
     private final DefaultRoutineService defaultRoutineService;
     private final DailyRoutineRepository dailyRoutineRepository;
     private final DailyTaskRepository dailyTaskRepository;
+    private final TaskColorService taskColorService;
 
     // This one is for new user creation
     // When they create account after the cron job has already run for the day
@@ -41,7 +42,7 @@ public class DailyRoutineService {
     public DailyRoutine getOrCreateDailyRoutine(UUID userId, LocalDate date) {
         User user = userService.getUserById(userId);
 
-        return dailyRoutineRepository.findByUserAndDate(user, date)
+        DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, date)
                 .orElseGet(() -> {
                     if (date.isEqual(LocalDate.now())) {
                         return createDailyRoutineFromDefault(user, date);
@@ -51,6 +52,7 @@ public class DailyRoutineService {
                     transientRoutine.setDate(date);
                     return transientRoutine;
                 });
+        return taskColorService.fillNextColor(routine);
     }
 
     // Explicit, intent-driven get-or-create for any date (e.g. the user adds
@@ -61,8 +63,8 @@ public class DailyRoutineService {
     public DailyRoutine ensureDailyRoutine(UUID userId, LocalDate date) {
         User user = userService.getUserById(userId);
 
-        return dailyRoutineRepository.findByUserAndDate(user, date)
-                .orElseGet(() -> createDailyRoutineFromDefault(user, date));
+        return taskColorService.fillNextColor(dailyRoutineRepository.findByUserAndDate(user, date)
+                .orElseGet(() -> createDailyRoutineFromDefault(user, date)));
     }
 
     private DailyRoutine createDailyRoutineFromDefault(User user, LocalDate date) {
@@ -82,18 +84,23 @@ public class DailyRoutineService {
                     task.setStartTime(template.getStartTime());
                     task.setDurationMinutes(template.getDurationMinutes());
                     task.setCompleted(false);
+                    task.setColor(template.getColor());
                     task.setDailyRoutine(dailyRoutine);
                     return task;
                 })
                 .collect(Collectors.toList());
 
         dailyRoutine.setTasks(dailyTasks);
+        // Day-only tasks continue the template's colour sequence (spec FR-003).
+        dailyRoutine.setColorCursor(defaultRoutine.getColorCursor());
         return dailyRoutineRepository.save(dailyRoutine);
     }
     @Transactional
     public List<DailyTask> addDailyTasks(UUID dailyRoutineId, List<DailyTask> tasks) {
         DailyRoutine routine = dailyRoutineRepository.findById(dailyRoutineId)
                 .orElseThrow(() -> new RuntimeException("Daily routine not found"));
+        routine.setColorCursor(taskColorService.assign(routine.getColorCursor(), tasks,
+                DailyTask::getName, DailyTask::getColor, DailyTask::setColor));
 
         List<DailyTask> savedTasks = tasks.stream().map(task -> {
             task.setDailyRoutine(routine);
@@ -115,6 +122,11 @@ public class DailyRoutineService {
             existing.setStartTime(details.getStartTime());
             existing.setDurationMinutes(details.getDurationMinutes());
             existing.setCompleted(details.isCompleted());
+            // A colour is only changed when one is sent; null keeps it (specs/F005 R4).
+            if (details.getColor() != null) {
+                taskColorService.requireValid(details.getColor());
+                existing.setColor(details.getColor());
+            }
 
             DailyRoutine routine = existing.getDailyRoutine();
             if (routine != null) {
@@ -140,7 +152,7 @@ public class DailyRoutineService {
     }
 
     // Called by the midnight job. Weekday vs weekend is decided by
-    // DefaultRoutineService.resolveTemplateFor (specs/002-onboarding-instruction research R3).
+    // DefaultRoutineService.resolveTemplateFor (specs/.done.002-onboarding-instruction research R3).
     @Transactional
     public void spawnDailyRoutineForUser(User user) {
         LocalDate today = LocalDate.now();
