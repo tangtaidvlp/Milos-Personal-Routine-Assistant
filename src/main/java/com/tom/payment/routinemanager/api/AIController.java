@@ -22,6 +22,10 @@ import com.tom.payment.routinemanager.dto.ChatHistoryPage;
 import com.tom.payment.routinemanager.dto.ChatRequest;
 import com.tom.payment.routinemanager.dto.ChatResponse;
 import com.tom.payment.routinemanager.dto.DailyRoutineChatRequest;
+import com.tom.payment.routinemanager.dto.ReflectionChatRequest;
+import com.tom.payment.routinemanager.dto.ReflectionView;
+import com.tom.payment.routinemanager.service.reflection.ReflectionAiService;
+import com.tom.payment.routinemanager.service.reflection.ReflectionService;
 import com.tom.payment.routinemanager.model.ChatConversation;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.model.User;
@@ -44,15 +48,21 @@ public class AIController {
     private final ChatConversationService conversations;
     private final CurrentUserGuard userGuard;
     private final DefaultRoutineRepository defaultRoutineRepository;
+    private final ReflectionService reflectionService;
+    private final ReflectionAiService reflectionAi;
 
     public AIController(AiChatService aiChatService,
                         ChatConversationService conversations,
                         CurrentUserGuard userGuard,
-                        DefaultRoutineRepository defaultRoutineRepository) {
+                        DefaultRoutineRepository defaultRoutineRepository,
+                        ReflectionService reflectionService,
+                        ReflectionAiService reflectionAi) {
         this.aiChatService = aiChatService;
         this.conversations = conversations;
         this.userGuard = userGuard;
         this.defaultRoutineRepository = defaultRoutineRepository;
+        this.reflectionService = reflectionService;
+        this.reflectionAi = reflectionAi;
     }
 
     @PostMapping("/chat/default-routine/{userId}")
@@ -121,6 +131,46 @@ public class AIController {
         logger.info("Chat history for user {} on {}: {} messages (before={})",
                 userId, date, page.messages().size(), before);
         return page;
+    }
+
+    /**
+     * Reflection chat (F007, contracts/reflection-chat-api.md): its own thread per day, and Buddy
+     * only has reflection tools, so the plan is never changed from here.
+     */
+    @PostMapping("/chat/daily-reflection/{userId}")
+    public ResponseEntity<ChatResponse> chatAboutReflection(
+            @PathVariable UUID userId,
+            @RequestBody ReflectionChatRequest request) {
+        User user = userGuard.requireUser(userId);
+        String message = requireMessage(request.message());
+        LocalDate date = request.date();
+        if (date == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required");
+        }
+        if (date.isAfter(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You can reflect once the day has happened");
+        }
+        ReflectionView view = reflectionService.getView(user, date);
+        if (!view.exists()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reflection not found");
+        }
+        logger.info("AI reflection chat request for user {} on {}: {}", userId, date, message);
+        ChatConversation conversation = conversations.getOrCreateReflectionConversation(user, date);
+        ChatContext context = conversations.buildContext(conversation.getId());
+        String aiReply = reflectionAi.chat(userId, date, view, context, message);
+        conversations.appendExchange(conversation.getId(), message, aiReply);
+        logger.info("AI reflection chat response for user {}: {}", userId, aiReply);
+        return ResponseEntity.ok(reply(aiReply));
+    }
+
+    @GetMapping("/chat/daily-reflection/{userId}/{date}/messages")
+    public ChatHistoryPage reflectionHistory(
+            @PathVariable UUID userId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) Long before,
+            @RequestParam(required = false) Integer limit) {
+        userGuard.requireUser(userId);
+        return conversations.getHistory(conversations.findReflectionConversation(userId, date), before, limit);
     }
 
     private static String requireMessage(String message) {

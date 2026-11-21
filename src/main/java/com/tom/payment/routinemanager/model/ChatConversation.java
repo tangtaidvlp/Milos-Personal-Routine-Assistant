@@ -49,7 +49,7 @@ public class ChatConversation {
     @Column(name = "default_routine_id")
     private UUID defaultRoutineId;
 
-    /** Set only for DAILY_ROUTINE. */
+    /** Set only for DAILY_ROUTINE and DAILY_REFLECTION. */
     @Column(name = "routine_date")
     private LocalDate routineDate;
 
@@ -98,6 +98,14 @@ public class ChatConversation {
         ChatConversation c = new ChatConversation();
         c.user = user;
         c.type = ChatConversationType.DAILY_ROUTINE;
+        c.routineDate = date;
+        return c;
+    }
+
+    public static ChatConversation forDailyReflection(User user, LocalDate date) {
+        ChatConversation c = new ChatConversation();
+        c.user = user;
+        c.type = ChatConversationType.DAILY_REFLECTION;
         c.routineDate = date;
         return c;
     }
