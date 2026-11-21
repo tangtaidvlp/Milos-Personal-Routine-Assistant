@@ -5,7 +5,7 @@
 --
 -- One row per (user, setting key). No row = the default value, so new users get
 -- no rows and adding a preference later needs no DDL
--- (specs/F006-user-profile-configuration-store, research R1, FR-016).
+-- (specs/.done.F006-user-profile-configuration-store, research R1, FR-016).
 
 CREATE TABLE IF NOT EXISTS user_setting (
     user_id       UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Every UI preference the server knows, with its default and validation rule
- * (specs/F006-user-profile-configuration-store, data-model §2).
+ * (specs/.done.F006-user-profile-configuration-store, data-model §2).
  *
  * <p><b>How to add a preference</b>: add a {@link SettingDefinition} to {@link #builtIns()} and the
  * matching entry to {@code ui-personal-routine-manager/src/features/settings/utils/settingsSchema.ts}.

@@ -19,7 +19,7 @@ import com.tom.payment.routinemanager.repository.UserSettingRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Reads and saves a user's UI settings (specs/F006-user-profile-configuration-store,
+ * Reads and saves a user's UI settings (specs/.done.F006-user-profile-configuration-store,
  * contracts/settings-api.md). A missing or invalid stored value reads as the default; rows
  * with unknown keys are ignored.
  */
