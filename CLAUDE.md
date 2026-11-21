@@ -50,6 +50,7 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 - **DailyTask** / **RoutineTaskTemplate** — both have `startTime` (LocalTime), `durationMinutes`, name, description, `color`. DailyTask adds `completed` boolean. Both compute `endTime` as a read-only JSON property.
 - **Task colors (F005, `specs/F005-i-want-color-to-be-persisted/`)** — `color` is a palette id (e.g. `green`, follows the UI theme) or an exact `#RRGGBB`. The palette lives in `application.yml` (`app.task-palette.colors`, `TaskPaletteProperties`, validated at startup; list order = round-robin order; never rename/remove an id). `TaskColorService` assigns colors on every create path (`addDefaultTasks`, `addDailyTasks`, full-replace of a default routine; AI tools and legacy `AiRoutineFunctions` go through these): no color → `palette[colorCursor]` and the routine's `colorCursor` advances; the next id sent explicitly also advances; any other valid color is kept without advancing; same-named tasks in one request share a color. Updates change the color only when one is sent (null keeps it). Invalid colors → 400. Routines expose a read-only `nextColor` (filled by the service; `colorCursor` is `@JsonIgnore`). Cloning a default routine into a day copies each task's color and the cursor. Tasks from before F005 have `color = null`; there is deliberately no backfill or special handling.
 - **RefreshToken** — persisted JWT refresh token with expiry and revocation tracking.
+- **UserSetting (F006, `specs/F006-user-profile-configuration-store/`)** — per-user UI preferences as key/value rows in `user_setting` (PK `user_id, setting_key`; no row = default). `UserSettingsRegistry` lists the known keys with default + validation: `theme` (LIGHT/DARK/SYSTEM, default SYSTEM, case-insensitive input) and `boardZoom` (0.5–3.0 in 0.25 steps, JSON number only, default 1.0). **Add a preference = one `SettingDefinition` in `builtIns()` + the frontend `settingsSchema.ts` entry; no DDL.** `UserSettingsService`: reads merge defaults (unknown keys and invalid stored values are ignored), PATCH validates every key before writing (400, nothing written), upserts per key, last write wins.
 
 ### Key service behaviors
 
@@ -89,6 +90,7 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 | `/api/routine-manager/daily-routine/**` | `DailyRoutineController` | CRUD for daily routines & tasks |
 | `/api/ai/chat/**` | `AIController` | AI chat for default & daily routines |
 | `/api/users/**` | `UserController` | Onboarding completion |
+| `/api/v1/users/{userId}/settings`, `/profile` | `UserSettingsController` | UI settings GET/PATCH; profile view (username, email, plan = FREE). `CurrentUserGuard`: 404 unknown user, 403 other user |
 | `/api/v1/task-palette` | `TaskPaletteController` | Task color palette (GET), round-robin order |
 | `/api/support/cron/**` | `CronSupportController` | Manual cron trigger (local/fast/test only) |
 
@@ -99,7 +101,7 @@ Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `f
 - **GitHub Actions** (`.github/workflows/gradle-publish.yml`): builds with Gradle, builds Docker image, pushes to AWS ECR (`milos` repo), deploys to EC2 via SSH.
 - **Docker**: `Dockerfile` uses `eclipse-temurin:25` base. `docker-compose.yml` runs PostgreSQL 17 (`trixie` tag) on port 5469.
 - Tests are skipped in CI (`-x test`).
-- **Schema**: prod is `ddl-auto: validate` with no Flyway. New tables or columns need a DDL script under `db/` applied to the prod DB *before* the new image starts. F004: `db/F004-chat-history.sql`. F005: `db/F005-task-color.sql`.
+- **Schema**: prod is `ddl-auto: validate` with no Flyway. New tables or columns need a DDL script under `db/` applied to the prod DB *before* the new image starts. F004: `db/F004-chat-history.sql`. F005: `db/F005-task-color.sql`. F006: `db/F006-user-settings.sql`.
 
 ## Conventions
 
