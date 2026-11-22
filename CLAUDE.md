@@ -115,3 +115,16 @@ Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `f
 - UUID primary keys with `GenerationType.UUID`.
 - `application.yml` contains shared config; profile-specific files override datasource settings.
 - `application-fast.yml` uses H2 in-memory DB — no PostgreSQL needed. It is not the default; select it with `SPRING_PROFILES_ACTIVE=fast`.
+
+## Rules for new code (from the constitution)
+
+Existing code doesn't follow all of these yet; new and substantially changed code must.
+
+- **DTOs:** request/response bodies are Java records, never JPA entities. Validate input with Bean Validation (`@Valid`, `@NotNull`, …).
+- **Errors:** return RFC 9457 Problem Details (`ProblemDetail`, `application/problem+json`) from a `@RestControllerAdvice`. Never put stack traces, SQL or class names in the body.
+- **Ownership:** look up every user-owned entity by (user, id); 404 when it isn't the user's.
+- **Tests:** database behaviour is tested against PostgreSQL with Testcontainers, not only H2. Inject `java.time.Clock` instead of calling `LocalDate.now()`. Tests use the mock AI (`spring.ai.active=false`).
+- **Schema:** changes are additive and backward compatible (expand → migrate → contract). Don't rename/drop a column, enum value, palette id or setting key in one release. Flyway is the target; until it's adopted, keep using `db/<feature>.sql` and make scripts idempotent.
+- **Security:** secrets come only from env vars. Never log tokens, prompts or chat content at INFO or above. The JWT key must come from a secret, not be generated at startup.
+- **AI tools:** register only the tools a chat context needs; take the user id from the security context, never from model output; validate tool arguments like user input; destructive bulk actions need user confirmation in the UI.
+- **Logging:** SLF4J only (no `System.out`); log an error once, where it's handled.
