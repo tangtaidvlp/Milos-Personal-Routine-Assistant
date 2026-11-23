@@ -16,7 +16,7 @@ import com.tom.payment.routinemanager.service.chat.ChatContext;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Gemini-backed Buddy for reflections (specs/F007-reflection research R4/R5).
+ * Gemini-backed Buddy for reflections (specs/.done.F007-reflection research R4/R5).
  * Two clients from prototype builders: chat has ONLY the reflection tools, so it can
  * never change the plan; feedback has no tools at all.
  */

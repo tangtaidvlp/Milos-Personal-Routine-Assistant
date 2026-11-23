@@ -19,7 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** One thing the user actually did (specs/F007-reflection data-model). */
+/** One thing the user actually did (specs/.done.F007-reflection data-model). */
 @Entity
 @Table(name = "reflection_task")
 @Getter

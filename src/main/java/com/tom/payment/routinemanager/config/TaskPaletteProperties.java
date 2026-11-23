@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Task colour palette ({@code app.task-palette.colors}), specs/F005-i-want-color-to-be-persisted data-model §1.
+ * Task colour palette ({@code app.task-palette.colors}), specs/.done.F005-i-want-color-to-be-persisted data-model §1.
  * List order is the round-robin order. Ids are stored on tasks, so they must never be renamed or removed.
  * Invalid config fails application startup.
  */

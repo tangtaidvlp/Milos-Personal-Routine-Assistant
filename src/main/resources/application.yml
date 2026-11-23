@@ -9,7 +9,7 @@ app:
     compaction-threshold: 20
     # Max messages returned per chat-history request (lazy-load page size).
     history-page-size: 20
-  # Task colour palette (specs/F005-i-want-color-to-be-persisted), served at GET /api/v1/task-palette.
+  # Task colour palette (specs/.done.F005-i-want-color-to-be-persisted), served at GET /api/v1/task-palette.
   # List order = round-robin order for auto-assigned colours.
   # Never rename or remove an id once released: tasks store it. Only add entries or recolour them.
   # Keep the id list in sync with TaskColorService.PALETTE_IDS_HINT (used in Buddy's tool descriptions).

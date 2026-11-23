@@ -7,7 +7,7 @@ import java.util.UUID;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 /**
- * Plan vs reality for one day (specs/F007-reflection research R3).
+ * Plan vs reality for one day (specs/.done.F007-reflection research R3).
  * Computed on every read; never stored.
  */
 public record ReflectionComparison(

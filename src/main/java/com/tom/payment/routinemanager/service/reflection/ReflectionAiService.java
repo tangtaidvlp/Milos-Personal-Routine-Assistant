@@ -7,7 +7,7 @@ import com.tom.payment.routinemanager.dto.ReflectionView;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 
 /**
- * Buddy for reflections (specs/F007-reflection research R4/R5). Kept apart from
+ * Buddy for reflections (specs/.done.F007-reflection research R4/R5). Kept apart from
  * {@code AiChatService} so the reflection chat has no plan/default-routine tools.
  */
 public interface ReflectionAiService {

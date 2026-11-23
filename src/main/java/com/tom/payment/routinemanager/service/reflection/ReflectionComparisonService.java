@@ -22,7 +22,7 @@ import com.tom.payment.routinemanager.model.ReflectionTask;
 
 /**
  * Groups a day's tasks into as planned / changed / skipped / unplanned
- * (specs/F007-reflection research R3). Pure: no repository access.
+ * (specs/.done.F007-reflection research R3). Pure: no repository access.
  */
 @Service
 public class ReflectionComparisonService {

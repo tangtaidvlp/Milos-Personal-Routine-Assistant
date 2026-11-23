@@ -7,7 +7,7 @@ import java.util.UUID;
 import com.tom.payment.routinemanager.model.ReflectionTask;
 
 /**
- * Response of every reflection endpoint (specs/F007-reflection contracts/reflection-api.md).
+ * Response of every reflection endpoint (specs/.done.F007-reflection contracts/reflection-api.md).
  * When {@code exists} is false there is no reflection yet: tasks are empty and every planned
  * task shows as SKIPPED.
  */

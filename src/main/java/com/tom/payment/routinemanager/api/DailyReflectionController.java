@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Daily reflection: what really happened vs the plan
- * (specs/F007-reflection/contracts/reflection-api.md). Every response is a ReflectionView.
+ * (specs/.done.F007-reflection/contracts/reflection-api.md). Every response is a ReflectionView.
  */
 @RestController
 @RequestMapping("/api/routine-manager/daily-reflection/{userId}/{date}")

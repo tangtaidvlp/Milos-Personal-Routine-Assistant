@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * What actually happened on one day for one user (specs/F007-reflection).
+ * What actually happened on one day for one user (specs/.done.F007-reflection).
  * Independent of the day's plan ({@link DailyRoutine}): copied from it once, never synced.
  * Prod schema: {@code db/F007-daily-reflection.sql}.
  */

@@ -25,7 +25,7 @@ import com.tom.payment.routinemanager.service.reflection.ReflectionService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Buddy's tools for a day's reflection (specs/F007-reflection, US3). They edit
+ * Buddy's tools for a day's reflection (specs/.done.F007-reflection, US3). They edit
  * only the reflection — the reflection chat client has no plan tools at all.
  */
 @Service

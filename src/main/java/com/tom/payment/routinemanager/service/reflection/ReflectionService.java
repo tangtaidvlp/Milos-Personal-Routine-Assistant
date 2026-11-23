@@ -38,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Daily reflections (specs/F007-reflection). Reads the day's plan but never
+ * Daily reflections (specs/.done.F007-reflection). Reads the day's plan but never
  * writes it: no call here creates or changes a DailyRoutine/DailyTask (FR-005/006).
  */
 @Slf4j

@@ -20,7 +20,7 @@ import com.tom.payment.routinemanager.model.DefaultRoutine;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Task colours (specs/F005-i-want-color-to-be-persisted): validation and round-robin assignment.
+ * Task colours (specs/.done.F005-i-want-color-to-be-persisted): validation and round-robin assignment.
  * A colour is a palette id (follows the theme) or an exact {@code #RRGGBB} (user-chosen).
  */
 @Service
