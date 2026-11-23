@@ -185,7 +185,107 @@ class DailyRoutineComponentTest extends BaseComponentTest {
         mvc.perform(get(DAILY + "/" + user.id())).andExpect(error(HttpStatus.UNAUTHORIZED));
     }
 
+    // ---------- Reset day (specs/F012) ----------
+
+    @Test
+    void resetReplacesAnEditedDayWithAFreshCopyOfTheWeekdayTemplate() throws Exception {
+        TestUser user = newUser("reset");
+        addTemplateTasks(user, "DAILY", List.of(task("Coffee", "08:00", 15), task("Work", "09:00", 240)));
+        LocalDate today = clock.today();
+        JsonNode plan = ensureDay(user, today);
+        String coffeeId = plan.get("tasks").get(0).get("id").asText();
+        mvc.perform(as(user, put(DAILY + "/tasks"), List.of(Map.of(
+                        "id", coffeeId, "name", "Coffee", "startTime", "10:00", "durationMinutes", 15, "completed", true))))
+                .andExpect(status().isOk());
+        mvc.perform(as(user, post(DAILY + "/" + plan.get("id").asText() + "/tasks"), List.of(task("Extra", "20:00", 30))))
+                .andExpect(status().isOk());
+
+        mvc.perform(as(user, post(resetPath(user, today)))).andExpect(status().isNoContent());
+
+        JsonNode tasks = day(user, today).get("tasks");
+        JsonNode template = read(mvc.perform(as(user, get(DEFAULT + "/users/" + user.id()).param("type", "DAILY")))
+                .andExpect(status().isOk())).get("tasks");
+        assertEquals(List.of("Coffee", "Work"), names(tasks));
+        for (int i = 0; i < tasks.size(); i++) {
+            JsonNode copy = tasks.get(i);
+            JsonNode source = template.get(i);
+            assertEquals(source.get("startTime").asText(), copy.get("startTime").asText());
+            assertEquals(source.get("durationMinutes").asInt(), copy.get("durationMinutes").asInt());
+            assertEquals(source.get("color").asText(), copy.get("color").asText());
+            assertFalse(copy.get("completed").asBoolean());
+        }
+    }
+
+    @Test
+    void aSaturdayResetsToTheWeekendTemplateOrToTheWeekdayOneWhenWeekendIsEmpty() throws Exception {
+        TestUser withWeekend = newUser("reset");
+        addTemplateTasks(withWeekend, "DAILY", List.of(task("Work", "09:00", 240)));
+        addTemplateTasks(withWeekend, "WEEKEND", List.of(task("Long run", "09:00", 60)));
+        mvc.perform(as(withWeekend, post(resetPath(withWeekend, SATURDAY)))).andExpect(status().isNoContent());
+        assertEquals(List.of("Long run"), names(day(withWeekend, SATURDAY).get("tasks")));
+
+        TestUser emptyWeekend = newUser("reset");
+        addTemplateTasks(emptyWeekend, "DAILY", List.of(task("Work", "09:00", 240)));
+        mvc.perform(as(emptyWeekend, post(resetPath(emptyWeekend, SATURDAY)))).andExpect(status().isNoContent());
+        assertEquals(List.of("Work"), names(day(emptyWeekend, SATURDAY).get("tasks")));
+    }
+
+    @Test
+    void resettingAFutureDayThatDoesNotExistYetCreatesItFromTheTemplate() throws Exception {
+        TestUser user = newUser("reset");
+        addTemplateTasks(user, "DAILY", List.of(task("Coffee", "08:00", 15)));
+        LocalDate tomorrow = clock.today().plusDays(1);
+
+        mvc.perform(as(user, post(resetPath(user, tomorrow)))).andExpect(status().isNoContent());
+
+        assertTrue(dailyRoutineRepository.findByUserAndDate(user(user), tomorrow).isPresent());
+        assertEquals(List.of("Coffee"), names(day(user, tomorrow).get("tasks")));
+    }
+
+    @Test
+    void aPastDayCannotBeResetAndStaysAsItWas() throws Exception {
+        TestUser user = newUser("reset");
+        addTemplateTasks(user, "DAILY", List.of(task("Coffee", "08:00", 15)));
+        LocalDate yesterday = clock.today().minusDays(1);
+        String routineId = ensureDay(user, yesterday).get("id").asText();
+        mvc.perform(as(user, post(DAILY + "/" + routineId + "/tasks"), List.of(task("Extra", "20:00", 30))))
+                .andExpect(status().isOk());
+
+        JsonNode refusal = read(mvc.perform(as(user, post(resetPath(user, yesterday))))
+                .andExpect(error(HttpStatus.BAD_REQUEST)));
+        assertEquals("Past days can't be reset", refusal.get("message").asText());
+        assertEquals(List.of("Coffee", "Extra"), names(day(user, yesterday).get("tasks")));
+    }
+
+    @Test
+    void anotherUsersDayCannotBeReset() throws Exception {
+        TestUser owner = newUser("reset");
+        TestUser other = newUser("reset");
+        mvc.perform(as(other, post(resetPath(owner, clock.today())))).andExpect(error(HttpStatus.FORBIDDEN));
+    }
+
+    @Test
+    void resetKeepsTheDaysReflection() throws Exception {
+        TestUser user = newUser("reset");
+        addTemplateTasks(user, "DAILY", List.of(task("Coffee", "08:00", 15)));
+        LocalDate today = clock.today();
+        ensureDay(user, today);
+        String reflection = "/api/routine-manager/daily-reflection/" + user.id() + "/" + today;
+        mvc.perform(as(user, post(reflection))).andExpect(status().isOk());
+        mvc.perform(as(user, post(reflection + "/tasks"), List.of(task("Real nap", "14:00", 20))))
+                .andExpect(status().isOk());
+
+        mvc.perform(as(user, post(resetPath(user, today)))).andExpect(status().isNoContent());
+
+        JsonNode reality = read(mvc.perform(as(user, get(reflection))).andExpect(status().isOk()));
+        assertEquals(List.of("Coffee", "Real nap"), names(reality.get("tasks")));
+    }
+
     // ---------- helpers ----------
+
+    private static String resetPath(TestUser user, LocalDate date) {
+        return DAILY + "/" + user.id() + "/" + date + "/reset";
+    }
 
     private User user(TestUser user) {
         return userRepository.findById(user.id()).orElseThrow();

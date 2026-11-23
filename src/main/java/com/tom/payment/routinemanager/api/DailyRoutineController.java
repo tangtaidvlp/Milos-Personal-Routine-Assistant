@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tom.payment.routinemanager.config.CurrentUserGuard;
 import com.tom.payment.routinemanager.model.DailyRoutine;
 import com.tom.payment.routinemanager.model.DailyTask;
 import com.tom.payment.routinemanager.service.DailyRoutineService;
@@ -27,10 +28,21 @@ public class DailyRoutineController {
 
     private final DailyRoutineService dailyRoutineService;
     private final Clock clock;
+    private final CurrentUserGuard userGuard;
 
-    public DailyRoutineController(DailyRoutineService dailyRoutineService, Clock clock) {
+    public DailyRoutineController(DailyRoutineService dailyRoutineService, Clock clock, CurrentUserGuard userGuard) {
         this.dailyRoutineService = dailyRoutineService;
         this.clock = clock;
+        this.userGuard = userGuard;
+    }
+
+    /** Reset day (specs/F012): the day's tasks become a fresh copy of its default routine. 400 for a past day. */
+    @PostMapping("/daily-routine/{userId}/{date}/reset")
+    public ResponseEntity<Void> resetDailyRoutine(
+            @PathVariable UUID userId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        dailyRoutineService.resetToDefault(userGuard.requireUser(userId), date);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/daily-routine/{routineId}/tasks")
