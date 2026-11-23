@@ -2,6 +2,7 @@ package com.tom.payment.routinemanager.api;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ import com.tom.payment.routinemanager.dto.DailyRoutineChatRequest;
 import com.tom.payment.routinemanager.dto.ReflectionChatRequest;
 import com.tom.payment.routinemanager.dto.ReflectionView;
 import com.tom.payment.routinemanager.funcs.DayRules;
+import com.tom.payment.routinemanager.funcs.TimeOfDay;
 import com.tom.payment.routinemanager.service.reflection.ReflectionAiService;
 import com.tom.payment.routinemanager.service.reflection.ReflectionService;
 import com.tom.payment.routinemanager.model.ChatConversation;
@@ -33,6 +35,7 @@ import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.model.User;
 import com.tom.payment.routinemanager.repository.DefaultRoutineRepository;
 import com.tom.payment.routinemanager.service.AiChatService;
+import com.tom.payment.routinemanager.service.BuddyReply;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 import com.tom.payment.routinemanager.service.chat.ChatConversationService;
 
@@ -81,12 +84,13 @@ public class AIController {
         }
         requireOwnedRoutine(userId, request.getDefaultRoutine().getId());
 
-        logger.info("AI chat request for user {}: {}", userId, message);
+        logger.debug("AI chat request for user {}: {}", userId, message);
         ChatConversation conversation = conversations.getOrCreateDefaultRoutineConversation(user, request.getDefaultRoutine().getId());
         ChatContext context = conversations.buildContext(conversation.getId());
-        String aiReply = aiChatService.defaultRoutineChat(userId, request.getDefaultRoutine(), context, message);
-        conversations.appendExchange(conversation.getId(), message, aiReply);
-        logger.info("AI chat response for user {}: {}", userId, aiReply);
+        BuddyReply aiReply = aiChatService.defaultRoutineChat(userId, request.getDefaultRoutine(), context, message,
+                localTime(request.getLocalTime()));
+        conversations.appendExchange(conversation.getId(), message, aiReply.text());
+        logger.debug("AI chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
     }
 
@@ -100,12 +104,13 @@ public class AIController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required");
         }
 
-        logger.info("AI daily routine chat request for user {} on {}: {}", userId, request.getDate(), message);
+        logger.debug("AI daily routine chat request for user {} on {}: {}", userId, request.getDate(), message);
         ChatConversation conversation = conversations.getOrCreateDailyConversation(user, request.getDate());
         ChatContext context = conversations.buildContext(conversation.getId());
-        String aiReply = aiChatService.dailyRoutineChat(userId, request.getDailyRoutine(), request.getDate(), context, message);
-        conversations.appendExchange(conversation.getId(), message, aiReply);
-        logger.info("AI daily routine chat response for user {}: {}", userId, aiReply);
+        BuddyReply aiReply = aiChatService.dailyRoutineChat(userId, request.getDailyRoutine(), request.getDate(), context, message,
+                localTime(request.getLocalTime()));
+        conversations.appendExchange(conversation.getId(), message, aiReply.text());
+        logger.debug("AI daily routine chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
     }
 
@@ -159,12 +164,12 @@ public class AIController {
         if (!view.exists()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reflection not found");
         }
-        logger.info("AI reflection chat request for user {} on {}: {}", userId, date, message);
+        logger.debug("AI reflection chat request for user {} on {}: {}", userId, date, message);
         ChatConversation conversation = conversations.getOrCreateReflectionConversation(user, date);
         ChatContext context = conversations.buildContext(conversation.getId());
-        String aiReply = reflectionAi.chat(userId, date, view, context, message);
-        conversations.appendExchange(conversation.getId(), message, aiReply);
-        logger.info("AI reflection chat response for user {}: {}", userId, aiReply);
+        BuddyReply aiReply = reflectionAi.chat(userId, date, view, context, message, localTime(request.localTime()));
+        conversations.appendExchange(conversation.getId(), message, aiReply.text());
+        logger.debug("AI reflection chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
     }
 
@@ -176,6 +181,11 @@ public class AIController {
             @RequestParam(required = false) Integer limit) {
         userGuard.requireUser(userId);
         return conversations.getHistory(conversations.findReflectionConversation(userId, date), before, limit);
+    }
+
+    /** The user's local time for Buddy's tone (F015); a missing or malformed value is ignored, never refused. */
+    private static LocalTime localTime(String value) {
+        return TimeOfDay.parse(value).orElse(null);
     }
 
     private static String requireMessage(String message) {
@@ -193,9 +203,8 @@ public class AIController {
         }
     }
 
-    private static ChatResponse reply(String text) {
-        ChatResponse response = new ChatResponse();
-        response.setReply(text);
-        return response;
+    /** Only the text is stored in history; a goal proposal is returned once (F013 research R5). */
+    private static ChatResponse reply(BuddyReply reply) {
+        return new ChatResponse(reply.text(), reply.goalProposal());
     }
 }

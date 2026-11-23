@@ -25,9 +25,10 @@ class UserSettingsRegistryTest {
 
     @Test
     void builtInKeysAndDefaults() {
-        assertEquals(List.of("theme", "boardZoom"), registry.keys());
+        assertEquals(List.of("theme", "boardZoom", "buddyTone"), registry.keys());
         assertEquals("SYSTEM", registry.effectiveValue("theme", null));
         assertEquals(1.0, registry.effectiveValue("boardZoom", null));
+        assertEquals("BALANCED", registry.effectiveValue("buddyTone", null));
     }
 
     @Test
@@ -37,6 +38,15 @@ class UserSettingsRegistryTest {
         assertEquals("1.25", registry.parse("boardZoom", 1.25));
         assertEquals("0.5", registry.parse("boardZoom", 0.5));
         assertEquals("3.0", registry.parse("boardZoom", 3.0));
+        assertEquals("WARM_ANCHOR", registry.parse("buddyTone", "warm_anchor "));
+        assertEquals("ACCOUNTABILITY_COACH", registry.parse("buddyTone", "ACCOUNTABILITY_COACH"));
+    }
+
+    @Test
+    void unknownBuddyToneNamesTheAllowedTones() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> registry.parse("buddyTone", "ROBOT"));
+        assertEquals("buddyTone must be one of BALANCED, CHIEF_OF_STAFF, STOIC, SOCRATIC_PEER, WARM_ANCHOR, ACCOUNTABILITY_COACH",
+                e.getMessage());
     }
 
     static List<Object[]> invalidValues() {
@@ -47,6 +57,9 @@ class UserSettingsRegistryTest {
                 new Object[] {"boardZoom", 3.25},
                 new Object[] {"boardZoom", 1.1},
                 new Object[] {"boardZoom", "1.5"},
+                new Object[] {"buddyTone", "ROBOT"},
+                new Object[] {"buddyTone", 2},
+                new Object[] {"buddyTone", null},
                 new Object[] {"fontSize", 14});
     }
 
@@ -62,6 +75,8 @@ class UserSettingsRegistryTest {
         assertFalse(registry.isValidStored("boardZoom", "banana"));
         assertFalse(registry.isValidStored("fontSize", "14"));
         assertEquals(1.0, registry.effectiveValue("boardZoom", "banana"));
+        assertEquals("BALANCED", registry.effectiveValue("buddyTone", "ROBOT"));
+        assertEquals("STOIC", registry.effectiveValue("buddyTone", "STOIC"));
     }
 
     @Test
@@ -75,7 +90,7 @@ class UserSettingsRegistryTest {
         }, Boolean::parseBoolean));
         UserSettingsRegistry extended = new UserSettingsRegistry(definitions);
 
-        assertEquals(List.of("theme", "boardZoom", "compactMode"), extended.keys());
+        assertEquals(List.of("theme", "boardZoom", "buddyTone", "compactMode"), extended.keys());
         assertEquals(false, extended.effectiveValue("compactMode", null));
         assertEquals("true", extended.parse("compactMode", true));
         assertThrows(IllegalArgumentException.class, () -> extended.parse("compactMode", "yes"));

@@ -248,7 +248,7 @@ class ReflectionComponentTest extends BaseComponentTest {
         ok(as(user, post(base(user, today))));
         String first = ok(as(user, post(base(user, today) + "/feedback"))).at("/feedback/text").asText();
 
-        doThrow(new RuntimeException("AI down")).when(reflectionAi).feedback(any());
+        doThrow(new RuntimeException("AI down")).when(reflectionAi).feedback(any(), any(), any());
         mvc.perform(as(user, post(base(user, today) + "/feedback"))).andExpect(error(HttpStatus.SERVICE_UNAVAILABLE));
         assertEquals(first, ok(as(user, get(base(user, today)))).at("/feedback/text").asText());
     }

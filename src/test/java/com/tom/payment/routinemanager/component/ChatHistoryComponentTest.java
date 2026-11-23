@@ -142,7 +142,7 @@ class ChatHistoryComponentTest extends BaseComponentTest {
         sendRoutine(user, routine, "second").andExpect(status().isOk());
 
         ArgumentCaptor<ChatContext> captor = ArgumentCaptor.forClass(ChatContext.class);
-        verify(aiChatService).defaultRoutineChat(eq(user.id()), any(), captor.capture(), eq("second"));
+        verify(aiChatService).defaultRoutineChat(eq(user.id()), any(), captor.capture(), eq("second"), any());
         ChatContext context = captor.getValue();
         assertNull(context.summary());
         assertEquals(2, context.recentMessages().size());
@@ -155,7 +155,7 @@ class ChatHistoryComponentTest extends BaseComponentTest {
     void failedAiCallStoresNothing() throws Exception {
         TestUser user = newUser("chat");
         doThrow(new RuntimeException("AI down"))
-                .when(aiChatService).dailyRoutineChat(any(), any(), any(), any(), anyString());
+                .when(aiChatService).dailyRoutineChat(any(), any(), any(), any(), anyString(), any());
         sendDaily(user, DAY, "will fail").andExpect(error(HttpStatus.INTERNAL_SERVER_ERROR));
         assertEquals(0, history(user, dailyHistoryUrl(user.id(), DAY)).get("messages").size());
     }

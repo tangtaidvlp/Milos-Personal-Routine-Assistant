@@ -1,6 +1,7 @@
 package com.tom.payment.routinemanager.service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 import com.tom.payment.routinemanager.model.DailyRoutine;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
@@ -18,20 +19,14 @@ import org.springframework.stereotype.Service;
 public class MockAiChatService implements AiChatService {
 
     @Override
-    public String chat(UUID userId, String userMessage) {
+    public BuddyReply defaultRoutineChat(UUID userId, DefaultRoutine defaultRoutine, ChatContext context, String userMessage, LocalTime localTime) {
         // Mock response for testing
-        return "Mock response for user " + userId + ": " + userMessage;
+        return BuddyReply.text("Mock response for user " + userId + " (routine " + defaultRoutine.getId() + "): " + userMessage);
     }
 
     @Override
-    public String defaultRoutineChat(UUID userId, DefaultRoutine defaultRoutine, ChatContext context, String userMessage) {
+    public BuddyReply dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, LocalDate date, ChatContext context, String userMessage, LocalTime localTime) {
         // Mock response for testing
-        return "Mock response for user " + userId + " (routine " + defaultRoutine.getId() + "): " + userMessage;
-    }
-
-    @Override
-    public String dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, LocalDate date, ChatContext context, String userMessage) {
-        // Mock response for testing
-        return "Mock response for user " + userId + " (daily routine " + date + "): " + userMessage;
+        return BuddyReply.text("Mock response for user " + userId + " (daily routine " + date + "): " + userMessage);
     }
 }

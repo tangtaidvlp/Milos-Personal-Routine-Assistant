@@ -1,5 +1,7 @@
 package com.tom.payment.routinemanager.service;
 
+import com.tom.payment.routinemanager.funcs.BuddyTone;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -25,6 +27,8 @@ public class UserSettingsRegistry {
 
     public static final String THEME = "theme";
     public static final String BOARD_ZOOM = "boardZoom";
+    /** Buddy's tone (F014): one of {@link BuddyTone}'s ids. */
+    public static final String BUDDY_TONE = "buddyTone";
 
     private static final Set<String> THEMES = Set.of("LIGHT", "DARK", "SYSTEM");
     private static final double ZOOM_MIN = 0.5;
@@ -64,6 +68,7 @@ public class UserSettingsRegistry {
         List<SettingDefinition> list = new ArrayList<>();
         list.add(new SettingDefinition(THEME, "SYSTEM", UserSettingsRegistry::parseTheme, stored -> stored));
         list.add(new SettingDefinition(BOARD_ZOOM, "1.0", UserSettingsRegistry::parseZoom, Double::parseDouble));
+        list.add(new SettingDefinition(BUDDY_TONE, BuddyTone.DEFAULT.name(), UserSettingsRegistry::parseBuddyTone, stored -> stored));
         return list;
     }
 
@@ -118,6 +123,14 @@ public class UserSettingsRegistry {
             throw new IllegalArgumentException("theme must be one of LIGHT, DARK, SYSTEM");
         }
         return upper;
+    }
+
+    private static String parseBuddyTone(Object raw) {
+        String message = "buddyTone must be one of " + String.join(", ", BuddyTone.ids());
+        if (!(raw instanceof String text)) {
+            throw new IllegalArgumentException(message);
+        }
+        return BuddyTone.parse(text).orElseThrow(() -> new IllegalArgumentException(message)).name();
     }
 
     private static String parseZoom(Object raw) {

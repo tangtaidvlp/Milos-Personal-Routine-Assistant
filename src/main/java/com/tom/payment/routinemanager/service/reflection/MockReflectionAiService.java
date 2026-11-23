@@ -1,6 +1,7 @@
 package com.tom.payment.routinemanager.service.reflection;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.tom.payment.routinemanager.dto.ReflectionComparison;
 import com.tom.payment.routinemanager.dto.ReflectionView;
+import com.tom.payment.routinemanager.service.BuddyReply;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 
 /** Used when AI is off: a deterministic, kind note and an echo chat. */
@@ -18,7 +20,7 @@ import com.tom.payment.routinemanager.service.chat.ChatContext;
 public class MockReflectionAiService implements ReflectionAiService {
 
     @Override
-    public String feedback(ReflectionView view) {
+    public String feedback(UUID userId, ReflectionView view, LocalTime localTime) {
         ReflectionComparison c = view.comparison();
         ReflectionComparison.Counts n = c.counts();
         StringBuilder note = new StringBuilder();
@@ -52,7 +54,7 @@ public class MockReflectionAiService implements ReflectionAiService {
     }
 
     @Override
-    public String chat(UUID userId, LocalDate date, ReflectionView view, ChatContext context, String userMessage) {
-        return "Mock reflection response for user " + userId + " (" + date + "): " + userMessage;
+    public BuddyReply chat(UUID userId, LocalDate date, ReflectionView view, ChatContext context, String userMessage, LocalTime localTime) {
+        return BuddyReply.text("Mock reflection response for user " + userId + " (" + date + "): " + userMessage);
     }
 }
