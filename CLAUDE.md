@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project status (as of 2026-11-24)
+
+- **Phase:** pre-production. Production phase 1 (Flyway baseline, `prod` profile) hasn't started; the EC2 backend runs the `test` profile; CI/CD hardening is deferred for cost.
+- **Done:** F004 chat history, F005 task colours, F006 user settings, F007 reflection, F008 test structure, F011 overnight tasks, F012 reset day (`specs/.done.*`).
+- **Open bugs** (`AI-project-docs/bugs/`; remove a row when its bug is closed):
+
+| Bug | Severity | Problem |
+|---|---|---|
+| bug-0002 | High | Default/daily routine endpoints don't check that the routine belongs to the caller |
+| bug-0006 | High once `prod` is used | `prod` (open-in-view off) returns 500 on routine reads: entities are serialised directly |
+| bug-0003 | Medium | Refresh token expires after 15 min instead of 7 days |
+| bug-0004 | Medium | Logout doesn't revoke the stored refresh token |
+| bug-0005 | Medium | Buddy's update/delete tools fail without an open Hibernate session |
+| bug-0007 | Medium | Deployed `test` profile exposes the cron support endpoint; CI deploy sets no profile |
+
 ## Commands
 
 ```bash
@@ -76,7 +91,7 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 ### AI integration
 
 - `AiChatService` interface with two implementations switched by `spring.ai.active` property:
-  - **`GeminiAiChatService`** (`spring.ai.active=true`, default) — Spring AI with Gemini (model set in `application.yml`, currently `gemini-3.6-flash`). Uses `@Tool`-annotated methods in `DailyRoutineAiTools` and `DefaultRoutineAiTools` for CRUD operations. Stateless: no chat-memory advisor; Buddy's context is passed in as `ChatContext`.
+  - **`GeminiAiChatService`** (`spring.ai.active=true`, default) — Spring AI with Gemini (model set in `application.yml`, currently `gemini-3.5-flash-lite`). Uses `@Tool`-annotated methods in `DailyRoutineAiTools` and `DefaultRoutineAiTools` for CRUD operations. Stateless: no chat-memory advisor; Buddy's context is passed in as `ChatContext`.
   - **`MockAiChatService`** (`spring.ai.active=false`) — returns echo responses, no Spring AI beans required.
 - `AiRoutineFunctions` is a **legacy** function-calling approach using `java.util.function.Function` beans — it coexists but `GeminiAiChatService` uses the `@Tool` approach.
 - Gemini API key is configured via `GEMINI_API_KEY` environment variable.
