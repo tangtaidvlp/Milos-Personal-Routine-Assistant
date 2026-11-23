@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Bug | Severity | Problem |
 |---|---|---|
+| B008 | Critical | Frontend never sends the access token: 401 everywhere with auth on; with auth off (probably the deployed `local` profile) anyone with a user ID can reach that user's data |
 | bug-0002 | High | Default/daily routine endpoints don't check that the routine belongs to the caller |
 | bug-0006 | High once `prod` is used | `prod` (open-in-view off) returns 500 on routine reads: entities are serialised directly |
 | bug-0003 | Medium | Refresh token expires after 15 min instead of 7 days |
