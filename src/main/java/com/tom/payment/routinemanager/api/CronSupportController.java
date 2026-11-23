@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.api;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class CronSupportController {
 
     private final DailyTaskSpawningJob dailyTaskSpawningJob;
+    private final Clock clock;
 
     @PostMapping("/spawn-daily-task")
     public ResponseEntity<Map<String, Object>> triggerDailyTaskSpawn() {
@@ -28,7 +30,7 @@ public class CronSupportController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("ok", true);
-        response.put("triggeredAt", LocalDateTime.now().toString());
+        response.put("triggeredAt", LocalDateTime.now(clock).toString());
         response.put("message", "Daily task spawn job triggered successfully.");
         return ResponseEntity.ok(response);
     }

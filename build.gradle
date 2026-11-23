@@ -37,6 +37,10 @@ dependencies {
 	runtimeOnly 'com.h2database:h2'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	// F008: MockMvc with the security filter chain, and Postgres via Testcontainers
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testImplementation 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -48,8 +52,17 @@ dependencyManagement {
 	}
 }
 
+// Database for tests (F008): -PtestDb=h2 (default, in-memory) or -PtestDb=postgres
+// (Testcontainers, needs Docker). TEST_DB=... works too. CI uses postgres.
+def testDb = (findProperty('testDb') ?: System.getenv('TEST_DB') ?: 'h2').toString()
+if (!(testDb in ['h2', 'postgres'])) {
+	throw new GradleException("testDb must be 'h2' or 'postgres', got '${testDb}'")
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty 'test.db', testDb
+	inputs.property('testDb', testDb)
 }
 
 tasks.register('release', Copy) {

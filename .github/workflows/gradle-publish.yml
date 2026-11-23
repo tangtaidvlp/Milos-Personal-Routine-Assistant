@@ -31,8 +31,17 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build with Gradle
-      run: ./gradlew clean build -x test
+    # Runs the whole test suite on PostgreSQL (Testcontainers) before anything is
+    # built or deployed; a failing test stops the job here (F008).
+    - name: Build and test with Gradle
+      run: ./gradlew clean build -PtestDb=postgres
+
+    - name: Upload test report
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: build/reports/tests/test
 
     - name: Configure AWS Credentials
       if: env.AWS_ACCESS_KEY_ID != ''

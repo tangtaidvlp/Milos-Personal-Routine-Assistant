@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.service;
 
+import java.time.Clock;
 import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -7,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
+import com.tom.payment.routinemanager.funcs.DayRules;
 import com.tom.payment.routinemanager.funcs.JsonFunc;
 import com.tom.payment.routinemanager.model.DailyRoutine;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
@@ -32,12 +34,14 @@ public class GeminiAiChatService implements AiChatService {
 
     private final ChatClient chatClient;
     private final JsonFunc jsonFunc;
+    private final Clock clock;
 
     public GeminiAiChatService(
             ChatClient.Builder chatClientBuilder,
             JsonFunc jsonFunc,
             DefaultRoutineAiTools defaultRoutineAiTools,
-            DailyRoutineAiTools dailyRoutineAiTools) {
+            DailyRoutineAiTools dailyRoutineAiTools,
+            Clock clock) {
         log.info("Initializing GeminiAiChatService with Gemini ChatClient and AI tools.");
         this.chatClient = chatClientBuilder
                 .defaultSystem("""
@@ -51,6 +55,7 @@ public class GeminiAiChatService implements AiChatService {
                 .defaultTools(defaultRoutineAiTools, dailyRoutineAiTools)
                 .build();
         this.jsonFunc = jsonFunc;
+        this.clock = clock;
     }
 
     @Override
@@ -58,7 +63,7 @@ public class GeminiAiChatService implements AiChatService {
         return chatClient.prompt()
                 .system("The current user's ID is: " + userId
                         + ". You MUST use this ID whenever a tool requires a 'userId' parameter. "
-                        + "Today's date is: " + java.time.LocalDate.now() + ".")
+                        + "Today's date is: " + java.time.LocalDate.now(clock) + ".")
                 .user(userMessage)
                 .call()
                 .content();
@@ -72,7 +77,7 @@ public class GeminiAiChatService implements AiChatService {
                         + "User is asking to interact on this default routine: " + jsonFunc.parseToJson(defaultRoutine) + ". "
                         + "ID is ID. "
                         + "tasks are the routine tasks item, you need to identify which tasks user are mention base on their prompt and perform the request. "
-                        + "Today's date is: " + java.time.LocalDate.now() + "."
+                        + "Today's date is: " + java.time.LocalDate.now(clock) + "."
                         + summaryBlock(context))
                 .messages(context.recentMessages())
                 .user(userMessage)
@@ -82,7 +87,7 @@ public class GeminiAiChatService implements AiChatService {
 
     @Override
     public String dailyRoutineChat(UUID userId, DailyRoutine dailyRoutine, java.time.LocalDate date, ChatContext context, String userMessage) {
-        boolean isPastDate = date.isBefore(java.time.LocalDate.now());
+        boolean isPastDate = DayRules.isPast(date, java.time.LocalDate.now(clock));
         return chatClient.prompt()
                 .system("Current user's ID is: " + userId
                         + ". You MUST use this ID whenever a tool requires a 'userId' parameter. "
@@ -94,7 +99,7 @@ public class GeminiAiChatService implements AiChatService {
                                 ? "This date is in the past. Do NOT add new tasks or change any task's time schedule (startTime/durationMinutes) for this date. "
                                         + "Only completed status, name, or description may be changed. Politely explain this limitation if the user asks to reschedule. "
                                 : "")
-                        + "Today's date is: " + java.time.LocalDate.now() + "."
+                        + "Today's date is: " + java.time.LocalDate.now(clock) + "."
                         + summaryBlock(context))
                 .messages(context.recentMessages())
                 .user(userMessage)

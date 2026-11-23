@@ -1,34 +1,48 @@
-package com.tom.payment.routinemanager;
+package com.tom.payment.routinemanager.unit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
+import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.core.env.PropertySource;
+import org.springframework.core.io.ClassPathResource;
 
 import com.tom.payment.routinemanager.config.TaskPaletteProperties;
 
 /**
- * Task-card text stays readable on every palette background in both themes (spec F005 FR-022).
- * Text colours mirror --color-text-primary in ui-personal-routine-manager/src/styles/tokens.css.
+ * Rule: task-card text stays readable on every palette background in both themes
+ * (spec F005 FR-022, WCAG AA). Text colours mirror --color-text-primary in
+ * ui-personal-routine-manager/src/styles/tokens.css. The palette is read from
+ * application.yml without starting the backend.
  */
-@SpringBootTest
-public class TaskPaletteContrastTest {
+class TaskPaletteContrastTest {
 
     private static final String LIGHT_TEXT = "#1F2937";
     private static final String DARK_TEXT = "#E6EBF2";
 
-    @Autowired
-    private TaskPaletteProperties palette;
-
     @Test
-    void textOnEveryTaskBackgroundReachesAA() {
+    void textOnEveryTaskBackgroundReachesAA() throws Exception {
+        TaskPaletteProperties palette = loadPalette();
+        assertEquals(8, palette.colors().size());
         for (TaskPaletteProperties.PaletteColor color : palette.colors()) {
             double light = contrast(LIGHT_TEXT, color.light().bg());
             double dark = contrast(DARK_TEXT, color.dark().bg());
             assertTrue(light >= 4.5, color.id() + " light bg contrast " + light);
             assertTrue(dark >= 4.5, color.id() + " dark bg contrast " + dark);
         }
+    }
+
+    private static TaskPaletteProperties loadPalette() throws Exception {
+        List<PropertySource<?>> sources = new YamlPropertySourceLoader()
+                .load("application", new ClassPathResource("application.yml"));
+        return new Binder(ConfigurationPropertySources.from(sources))
+                .bind("app.task-palette", TaskPaletteProperties.class)
+                .get();
     }
 
     /** WCAG 2.x contrast ratio, same maths as src/styles/contrast.ts in the UI project. */

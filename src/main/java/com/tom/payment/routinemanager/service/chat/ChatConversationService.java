@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import jakarta.persistence.EntityManager;
+
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -47,6 +49,7 @@ public class ChatConversationService {
     private final ChatHistoryProperties properties;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate transactionTemplate;
+    private final EntityManager entityManager;
 
     // ---------- lookup ----------
 
@@ -125,6 +128,11 @@ public class ChatConversationService {
     @Transactional
     public void appendExchange(UUID conversationId, String userText, String assistantText) {
         ChatConversation c = conversationRepository.findByIdForUpdate(conversationId).orElseThrow();
+        // With open-in-view the conversation is usually already in this request's persistence
+        // context, and the locking query hands back that cached copy. Re-read it now that we
+        // hold the row lock, so concurrent messages never reuse a seq (F008, found by
+        // ChatSequenceLockingIntegrationTest).
+        entityManager.refresh(c);
         long seq = c.getLastMessageSeq();
         Instant now = Instant.now();
         messageRepository.save(new ChatMessage(c, seq + 1, ChatRole.USER, userText, now));
@@ -145,7 +153,7 @@ public class ChatConversationService {
             return ChatHistoryPage.empty();
         }
         UUID id = conversation.get().getId();
-        int size = Math.max(1, Math.min(limit == null ? properties.historyPageSize() : limit, properties.historyPageSize()));
+        int size = properties.pageSizeFor(limit);
         PageRequest page = PageRequest.of(0, size);
 
         List<ChatMessage> desc = before == null

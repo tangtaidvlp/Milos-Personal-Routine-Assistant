@@ -1,10 +1,10 @@
 package com.tom.payment.routinemanager.service;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.tom.payment.routinemanager.funcs.TaskTimeFunctions;
+import com.tom.payment.routinemanager.funcs.RoutineTemplateRules;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.model.RoutineTaskTemplate;
 import com.tom.payment.routinemanager.model.User;
@@ -121,14 +122,15 @@ public class DefaultRoutineService {
      */
     @Transactional(readOnly = true)
     public DefaultRoutine resolveTemplateFor(User user, LocalDate date) {
-        boolean weekend = date.getDayOfWeek().getValue() >= DayOfWeek.SATURDAY.getValue();
-        if (weekend) {
-            var weekendRoutine = defaultRoutineRepository
-                    .findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.WEEKEND)
-                    .filter(routine -> !routine.getTasks().isEmpty());
-            if (weekendRoutine.isPresent()) {
-                return weekendRoutine.get();
-            }
+        // Only weekends need the weekend routine looked up.
+        Optional<DefaultRoutine> weekendWithTasks = RoutineTemplateRules.isWeekend(date)
+                ? defaultRoutineRepository
+                        .findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.WEEKEND)
+                        .filter(routine -> !routine.getTasks().isEmpty())
+                : Optional.empty();
+        if (RoutineTemplateRules.templateTypeFor(date, weekendWithTasks.isPresent())
+                == DefaultRoutine.RoutineTypeEnum.WEEKEND) {
+            return weekendWithTasks.get();
         }
         return defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found for user"));

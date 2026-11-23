@@ -23,10 +23,10 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 # Run the release JAR (with optional profile)
 ./gradlew runRelease -Pprofile=local
 
-# Tests
-./gradlew test
-./gradlew test --tests "com.tom.payment.routinemanager.RoutineServiceIntegrationTest"
-./gradlew test --tests "com.tom.payment.routinemanager.apptest.OnboardingRoutineTest"
+# Tests (see "Testing strategy")
+./gradlew test                                       # H2
+./gradlew test -PtestDb=postgres                     # Testcontainers Postgres, like CI
+./gradlew test --tests '*SignInComponentTest'        # one class
 ```
 
 ## Architecture
@@ -39,6 +39,7 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 |---------|----|------|---------|
 | `fast` | H2 in-memory | Disabled (`allowAll=true`) | Quick local dev, no DB setup |
 | `local` (default, set in `application.yml`) | PostgreSQL (localhost:5469) | Disabled (`allowAll=true`) | Full local stack |
+| `test` | H2 or Testcontainers Postgres in the test suite (`src/test/resources/application-test*.yml`); the EC2 backend also runs this profile | Enabled (JWT filter) | Automated tests; deployed backend |
 | `sit` | PostgreSQL (localhost:5469) | Enabled (JWT filter) | Staging/integration testing |
 | `prod` | External PostgreSQL | Enabled (JWT filter) | Production |
 
@@ -65,7 +66,8 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 
 - `POST /api/v1/auth/login` — returns access token in JSON body + refresh token as httpOnly cookie (path-scoped to `/api/v1/auth/refresh`).
 - `POST /api/v1/auth/refresh` — reads refresh token from cookie, returns new access token.
-- JWT filter (`JwtAuthenticationFilter`) is only active on `prod` and `sit` profiles. `local`/`fast` profiles skip auth entirely (all requests permitted).
+- JWT filter (`JwtAuthenticationFilter`) is active on every profile except `local`/`fast`, which skip auth entirely (all requests permitted). So it runs in `test`, `sit` and `prod`. A malformed or forged bearer token leaves the request unauthenticated (401), never a 500. A request without a valid token gets 401 with the `ApiError` body (`message` "Please sign in to continue.").
+- Sign-in refusals are client errors with a short message (F008): wrong email or password → 401 `Invalid email or password.` (same body for both), duplicate registration → 409, unknown/revoked/expired refresh token → 401. Refresh-token expiry is checked with the injected `Clock`.
 - JWT signing key is generated in-memory at startup (`Jwts.SIG.HS256.key().build()`) — **not persisted across restarts**, so all tokens are invalidated on restart.
 
 ### AI integration
@@ -82,6 +84,35 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 - **Reflection AI (F007)** — `ReflectionAiService` (`GeminiReflectionAiService` / `MockReflectionAiService`, same `spring.ai.active` switch) is separate from `AiChatService`: its chat client's only tools are `ReflectionAiTools`, so the reflection chat can never edit the plan (`GeminiAiChatService` registers plan tools as *default* tools, which per-call options can't remove). Feedback uses a tool-less client with tone rules (positive first, ≤ 2 gentle suggestions, no harsh words). Reflection chat history is its own `DAILY_REFLECTION` conversation per (user, date).
 - Past-date daily routines are frozen for the AI: no time schedule changes allowed, only content/completion/color edits.
 - Buddy's task tools take an optional `color` that must be a palette id (case-insensitive); hex values and unknown names are refused with a reply listing the palette. The id list in the tool descriptions is `TaskColorService.PALETTE_IDS_HINT` — keep it in sync with `application.yml`.
+
+## Testing strategy
+
+Three kinds of test, set by package and name (constitution Principle II; spec `specs/F008-technical-enhancement-update-backend-testing-structure/`). `unit/TestStructureRulesTest` enforces the rules below.
+
+| Kind | Where / name | What it covers | Rules |
+|---|---|---|---|
+| **Component** (default) | `component/<Flow>ComponentTest`, extends `support/BaseComponentTest` | One main user flow through the public API: success path plus main refusals (400/401/403/404/409). Check status, JSON body and, on writes, stored rows | Real sign-in: `newUser()` registers and logs in through `/api/v1/auth/*` and `as(user, request)` sends the real bearer token. Don't call services instead of API routes (the one exception: Buddy's tool methods, which only the AI calls). Don't repeat a rule's edge cases here |
+| **Unit** | `unit/<Rule>Test` | One core business rule and its edge cases (colours, overlap shift, template choice, day rules, chat paging/compaction, settings validation, plan-vs-reality) | Plain JUnit 5, no Spring, no database, never mock storage. Pull a rule out of storage code first (`funcs/`, property records) |
+| **Integration** (max 10) | `integration/<Connection>IntegrationTest`, extends `BaseComponentTest` | One external connection: PostgreSQL-only behaviour (`@RequiresPostgres`), the JWT/security setup | Skipped (not passed) on H2 |
+
+- **One Spring context per run.** All Spring test config lives in `BaseComponentTest` (profiles, MockMvc with the security filter chain, the AI spies `aiChatService`/`chatSummarizer`/`reflectionAi`). Subclasses add no `@SpringBootTest`, `@TestPropertySource`, `@MockitoBean`/`@MockitoSpyBean` or `@DirtiesContext`.
+- **Controlled time and AI.** `clock` (`support/MutableClock`) is the `Clock` bean, fixed at Wed 2026-11-18 09:00 and reset after each test. Production code reads dates with `LocalDate.now(clock)`. The test profile uses the mock AI (`spring.ai.active=false`) and needs no `GEMINI_API_KEY`. `@Async` chat compaction runs inline in tests, so never poll or sleep for it.
+- **Refusals.** Check every 4xx/5xx with `andExpect(error(HttpStatus.X))` from `BaseComponentTest`: it checks the status and the whole `ApiError` shape. A bare `status().isNotFound()` fails `TestStructureRulesTest`. Check the message text separately where the flow promises one.
+- **Data.** Every test creates its own users; nothing is rolled back. Use repositories only to check stored state or to seed states the API can't create.
+- **Database.** H2 by default (`application-test-h2.yml` in `src/test/resources`); `-PtestDb=postgres` uses a Testcontainers `postgres:17` (Docker required, no fallback to H2). CI always uses Postgres.
+- **Bug fixes** start with a failing test: a component test for a flow bug, a unit test for a rule bug.
+- **While working**, run the class you're changing; run the full suite before closing a task.
+- **Flow map:** `docs/test-flows.md` lists which test covers each flow, rule and connection. Update it when you add, remove or change a test class.
+
+```bash
+./gradlew test                                              # everything, H2 (no Docker)
+./gradlew test -PtestDb=postgres                            # everything, Testcontainers Postgres (what CI runs)
+./gradlew test --tests '*DailyRoutineComponentTest'         # one class
+./gradlew test --tests 'com.tom.payment.routinemanager.unit.*'   # one kind
+```
+
+With Colima instead of Docker Desktop, Testcontainers needs `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
+
 
 ### API endpoints summary
 
@@ -103,8 +134,8 @@ Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `f
 
 - **GitHub Actions** (`.github/workflows/gradle-publish.yml`): builds with Gradle, builds Docker image, pushes to AWS ECR (`milos` repo), deploys to EC2 via SSH.
 - **Docker**: `Dockerfile` uses `eclipse-temurin:25` base. `docker-compose.yml` runs PostgreSQL 17 (`trixie` tag) on port 5469.
-- Tests are skipped in CI (`-x test`).
-- **Schema**: prod is `ddl-auto: validate` with no Flyway. New tables or columns need a DDL script under `db/` applied to the prod DB *before* the new image starts. F004: `db/F004-chat-history.sql`. F005: `db/F005-task-color.sql`. F006: `db/F006-user-settings.sql`. F007: `db/F007-daily-reflection.sql`.
+- CI runs `./gradlew clean build -PtestDb=postgres`: every test on Testcontainers Postgres. A failing test stops the job before the image is built, pushed or deployed, and the test report is uploaded as an artifact.
+- **Schema**: until production phase 1, Hibernate `ddl-auto` builds the schema (`update` by default, `create-drop` in tests); Flyway comes with the first stable schema at phase 1 (constitution Principle III). Prod is `ddl-auto: validate`. New tables or columns need a DDL script under `db/` applied to the prod DB *before* the new image starts. F004: `db/F004-chat-history.sql`. F005: `db/F005-task-color.sql`. F006: `db/F006-user-settings.sql`. F007: `db/F007-daily-reflection.sql`.
 
 ## Conventions
 
@@ -121,10 +152,10 @@ Packages live under `com.tom.payment.routinemanager` (`api`, `config`, `dto`, `f
 Existing code doesn't follow all of these yet; new and substantially changed code must.
 
 - **DTOs:** request/response bodies are Java records, never JPA entities. Validate input with Bean Validation (`@Valid`, `@NotNull`, …).
-- **Errors:** return RFC 9457 Problem Details (`ProblemDetail`, `application/problem+json`) from a `@RestControllerAdvice`. Never put stack traces, SQL or class names in the body.
+- **Errors:** every error returns the one `ApiError` body (`status`, `error`, `message`, `timestamp`), via `GlobalExceptionHandler` or, for the security 401, the entry point in `SecurityConfig`. No second format (no RFC 9457 Problem Details). Never put stack traces, SQL or class names in the body.
 - **Ownership:** look up every user-owned entity by (user, id); 404 when it isn't the user's.
-- **Tests:** database behaviour is tested against PostgreSQL with Testcontainers, not only H2. Inject `java.time.Clock` instead of calling `LocalDate.now()`. Tests use the mock AI (`spring.ai.active=false`).
-- **Schema:** changes are additive and backward compatible (expand → migrate → contract). Don't rename/drop a column, enum value, palette id or setting key in one release. Flyway is the target; until it's adopted, keep using `db/<feature>.sql` and make scripts idempotent.
+- **Tests:** follow "Testing strategy" above: a component test for every new flow or flow fix, unit tests for new rules. Inject `java.time.Clock` instead of calling `LocalDate.now()`.
+- **Schema:** changes are additive and backward compatible (expand → migrate → contract). Don't rename/drop a column, enum value, palette id or setting key in one release. Until production phase 1, `ddl-auto` builds the schema and `db/<feature>.sql` scripts (idempotent) cover the prod database; Flyway is adopted at phase 1 with the first stable schema, and then tests build the schema from the migrations.
 - **Security:** secrets come only from env vars. Never log tokens, prompts or chat content at INFO or above. The JWT key must come from a secret, not be generated at startup.
 - **AI tools:** register only the tools a chat context needs; take the user id from the security context, never from model output; validate tool arguments like user input; destructive bulk actions need user confirmation in the UI.
 - **Logging:** SLF4J only (no `System.out`); log an error once, where it's handled.

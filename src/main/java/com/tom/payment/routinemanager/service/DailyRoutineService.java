@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class DailyRoutineService {
     private final DailyRoutineRepository dailyRoutineRepository;
     private final DailyTaskRepository dailyTaskRepository;
     private final TaskColorService taskColorService;
+    private final Clock clock;
 
     // This one is for new user creation
     // When they create account after the cron job has already run for the day
@@ -44,7 +46,7 @@ public class DailyRoutineService {
 
         DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, date)
                 .orElseGet(() -> {
-                    if (date.isEqual(LocalDate.now())) {
+                    if (date.isEqual(LocalDate.now(clock))) {
                         return createDailyRoutineFromDefault(user, date);
                     }
                     DailyRoutine transientRoutine = new DailyRoutine();
@@ -155,7 +157,7 @@ public class DailyRoutineService {
     // DefaultRoutineService.resolveTemplateFor (specs/.done.002-onboarding-instruction research R3).
     @Transactional
     public void spawnDailyRoutineForUser(User user) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         if (dailyRoutineRepository.findByUserAndDate(user, today).isPresent()) {
             log.info("Skip spawn for user {}: daily routine already exists for {}", user.getId(), today);
             return;

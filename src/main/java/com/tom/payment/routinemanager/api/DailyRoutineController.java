@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.api;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -25,9 +26,11 @@ import com.tom.payment.routinemanager.service.DailyRoutineService;
 public class DailyRoutineController {
 
     private final DailyRoutineService dailyRoutineService;
+    private final Clock clock;
 
-    public DailyRoutineController(DailyRoutineService dailyRoutineService) {
+    public DailyRoutineController(DailyRoutineService dailyRoutineService, Clock clock) {
         this.dailyRoutineService = dailyRoutineService;
+        this.clock = clock;
     }
 
     @PostMapping("/daily-routine/{routineId}/tasks")
@@ -56,7 +59,7 @@ public class DailyRoutineController {
             @PathVariable UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
-        LocalDate targetDate = (date != null) ? date : LocalDate.now();
+        LocalDate targetDate = (date != null) ? date : LocalDate.now(clock);
         DailyRoutine dailyRoutine = dailyRoutineService.getOrCreateDailyRoutine(userId, targetDate);
         return ResponseEntity.ok(dailyRoutine);
     }

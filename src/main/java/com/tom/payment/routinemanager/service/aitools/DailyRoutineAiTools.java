@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.service.aitools;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import com.tom.payment.routinemanager.repository.DailyRoutineRepository;
 import com.tom.payment.routinemanager.service.DailyRoutineService;
 import com.tom.payment.routinemanager.service.TaskColorService;
 import com.tom.payment.routinemanager.service.UserService;
+import com.tom.payment.routinemanager.funcs.DayRules;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +31,7 @@ public class DailyRoutineAiTools {
     private final UserService userService;
     private final DailyRoutineRepository dailyRoutineRepository;
     private final TaskColorService taskColorService;
+    private final Clock clock;
 
     public record DailyTaskInput(String name, String description, String startTime, int durationMinutes, boolean completed,
             @ToolParam(required = false, description = "Optional task color: a palette id (" + TaskColorService.PALETTE_IDS_HINT + "). Only set it when the user asks for a color; never use hex codes.") String color) {}
@@ -46,7 +49,7 @@ public class DailyRoutineAiTools {
         try {
             User user = userService.getUserById(UUID.fromString(userId));
             LocalDate targetDate = LocalDate.parse(date);
-            if (targetDate.isBefore(LocalDate.now())) {
+            if (DayRules.isPast(targetDate, LocalDate.now(clock))) {
                 return "Cannot add new scheduled tasks to a past daily routine (" + date + ") — that day has already passed.";
             }
             DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, targetDate)
@@ -85,7 +88,7 @@ public class DailyRoutineAiTools {
         try {
             User user = userService.getUserById(UUID.fromString(userId));
             LocalDate targetDate = LocalDate.parse(date);
-            boolean isPastDate = targetDate.isBefore(LocalDate.now());
+            boolean isPastDate = DayRules.isPast(targetDate, LocalDate.now(clock));
             DailyRoutine routine = dailyRoutineRepository.findByUserAndDate(user, targetDate)
                     .orElseThrow(() -> new RuntimeException("Daily routine not found for date: " + date));
 

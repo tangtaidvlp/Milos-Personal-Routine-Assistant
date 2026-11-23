@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.service.reflection;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -31,6 +32,7 @@ import com.tom.payment.routinemanager.model.User;
 import com.tom.payment.routinemanager.repository.DailyReflectionRepository;
 import com.tom.payment.routinemanager.repository.DailyRoutineRepository;
 import com.tom.payment.routinemanager.service.TaskColorService;
+import com.tom.payment.routinemanager.funcs.DayRules;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,7 @@ public class ReflectionService {
     private final ReflectionComparisonService comparisonService;
     private final TaskColorService taskColorService;
     private final TransactionTemplate tx;
+    private final Clock clock;
 
     // ---------- reads ----------
 
@@ -233,11 +236,11 @@ public class ReflectionService {
         return reflection.getTasks().stream().collect(Collectors.toMap(ReflectionTask::getId, Function.identity()));
     }
 
-    static void requireNotFuture(LocalDate date) {
+    void requireNotFuture(LocalDate date) {
         if (date == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required");
         }
-        if (date.isAfter(LocalDate.now())) {
+        if (DayRules.isFuture(date, LocalDate.now(clock))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You can reflect once the day has happened");
         }
     }

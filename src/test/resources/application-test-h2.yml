@@ -1,0 +1,11 @@
+# Local default: ./gradlew test (or -PtestDb=h2). No external services.
+spring:
+  datasource:
+    url: jdbc:h2:mem:f008;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    # application.yml pins the PostgreSQL dialect; H2 needs its own (row locks:
+    # Postgres emits FOR NO KEY UPDATE, which H2 rejects).
+    database-platform: org.hibernate.dialect.H2Dialect

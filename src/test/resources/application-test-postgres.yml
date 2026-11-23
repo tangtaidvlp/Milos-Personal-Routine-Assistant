@@ -1,0 +1,5 @@
+# ./gradlew test -PtestDb=postgres (what CI runs). The datasource comes from the
+# Testcontainers postgres:17 bean (@ServiceConnection) in support/TestSupportConfig.
+spring:
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect

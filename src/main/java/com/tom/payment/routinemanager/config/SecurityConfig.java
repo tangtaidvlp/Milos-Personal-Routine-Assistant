@@ -6,16 +6,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.tom.payment.routinemanager.dto.ApiError;
 import com.tom.payment.routinemanager.service.AuthenticationService;
+
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +26,9 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    /** Message of the 401 sent when a protected route gets no valid bearer token. */
+    public static final String SIGN_IN_REQUIRED = "Please sign in to continue.";
 
     private final List<String> allowedOrigins;
 
@@ -34,7 +40,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    Environment environment,
                                                    CorsConfigurationSource corsConfigurationSource,
-                                                   AuthenticationService authenticationService) throws Exception {
+                                                   AuthenticationService authenticationService,
+                                                   JsonMapper jsonMapper) throws Exception {
         // Dev profiles run without authentication so the FE can be exercised
         // without a token. Every other profile — prod and sit included — gets
         // the JWT filter and a real authorization check.
@@ -58,9 +65,14 @@ public class SecurityConfig {
             })
             // Without this, a denied anonymous request returns 403. The SPA
             // needs 401 to tell "not logged in, go refresh" apart from
-            // "logged in but not allowed", which stays 403.
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(
-                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
+            // "logged in but not allowed", which stays 403. The body is the
+            // same ApiError every other error uses (constitution Principle I).
+            .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                jsonMapper.writeValue(response.getOutputStream(),
+                        ApiError.of(HttpStatus.UNAUTHORIZED.value(), "Unauthorized", SIGN_IN_REQUIRED));
+            }));
 
         if (!allowAll) {
             // Registered here rather than as a @Component: a Filter bean is

@@ -78,7 +78,7 @@ public class ChatCompactionService {
 
     private Snapshot snapshot(UUID conversationId) {
         ChatConversation c = conversationRepository.findById(conversationId).orElse(null);
-        if (c == null || c.getLastMessageSeq() - c.getSummarizedThroughSeq() < properties.compactionThreshold()) {
+        if (c == null || !properties.compactionDue(c.getLastMessageSeq() - c.getSummarizedThroughSeq())) {
             return null;
         }
         List<ChatMessage> messages = messageRepository.findByConversation_IdAndSeqBetweenOrderBySeqAsc(

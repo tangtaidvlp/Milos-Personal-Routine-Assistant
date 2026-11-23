@@ -10,6 +10,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.tom.payment.routinemanager.service.AuthenticationService;
 
+import io.jsonwebtoken.JwtException;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,8 +44,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 2. Extract the token
         jwt = authHeader.substring(7);
 
-        // 3. Extract username/email from JWT
-        userEmail = authenticationService.extractUsername(jwt);
+        // 3. Extract username/email from JWT. A malformed, tampered or foreign-signed token
+        //    leaves the request unauthenticated, so protected endpoints answer 401 (not 500).
+        try {
+            userEmail = authenticationService.extractUsername(jwt);
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.debug("Rejected bearer token: {}", ex.getClass().getSimpleName());
+            filterChain.doFilter(request, response);
+            return;
+        }
         log.debug("User working email   : {}", userEmail);
         // 4. If we have a username and the user isn't authenticated yet
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {

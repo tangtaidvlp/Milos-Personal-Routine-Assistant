@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.service;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -10,9 +11,11 @@ import java.util.UUID;
 import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.tom.payment.routinemanager.dto.AuthTokens;
 import com.tom.payment.routinemanager.dto.LoginRequest;
@@ -37,10 +40,18 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
+    private final Clock clock;
     // TODO: Externalise this configuration to application.properties or environment variables
     //  for better security and flexibility.
     private final SecretKey jwtSecretKey = Jwts.SIG.HS256.key().build(); 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    // Sign-in refusals are client errors with a short message (FR-018,
+    // specs/F008-…/contracts/sign-in-errors.md). Login uses one message for an unknown
+    // email and a wrong password so it never reveals whether an account exists.
+    static final String INVALID_LOGIN = "Invalid email or password.";
+    static final String EMAIL_TAKEN = "An account with this email already exists.";
+    static final String SESSION_EXPIRED = "Your session has expired. Please sign in again.";
 
     @Value("${jwt.access.expiration:900}") // 15 minutes in seconds
     private int accessTokenExpiration;
@@ -52,7 +63,7 @@ public class AuthenticationService {
     public RegisterResponse register(RegisterRequest request) {
         // Check if user already exists
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("User with this email already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, EMAIL_TAKEN);
         }
 
         // Create new user
@@ -74,18 +85,19 @@ public class AuthenticationService {
     public AuthTokens login(LoginRequest request) {
         // Find user by email
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, INVALID_LOGIN));
 
         // Verify password
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Invalid email or password");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, INVALID_LOGIN);
         }
 
         // Generate access token
         String accessToken = generateAccessToken(user);
 
         // Generate and save refresh token
-        Instant expiryDate = Instant.now().plusSeconds(accessTokenExpiration);
+        // NOTE: uses the access-token lifetime, not refreshTokenExpiration (filed as a bug, F008 T058).
+        Instant expiryDate = clock.instant().plusSeconds(accessTokenExpiration);
         String refreshTokenValue = generateRefreshToken(user, expiryDate);
         saveRefreshToken(user.getId(), refreshTokenValue, expiryDate);
 
@@ -101,21 +113,21 @@ public class AuthenticationService {
     public RefreshResponse refresh(String refreshTokenValue) {
         // Find refresh token
         RefreshToken refreshToken = refreshTokenRepository.findByTokenVal(refreshTokenValue)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED));
 
         // Check if token is revoked
         if (refreshToken.getIsRevoked()) {
-            throw new RuntimeException("Refresh token has been revoked");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
         // Check if token is expired
-        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
-            throw new RuntimeException("Refresh token has expired");
+        if (refreshToken.getExpiryDate().isBefore(clock.instant())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
         // Find user
         User user = userRepository.findById(refreshToken.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED));
 
         // Generate new access token
         String accessToken = generateAccessToken(user);

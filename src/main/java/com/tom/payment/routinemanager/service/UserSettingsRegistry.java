@@ -50,8 +50,8 @@ public class UserSettingsRegistry {
         this(builtIns());
     }
 
-    /** Package-visible so tests can register extra definitions. */
-    UserSettingsRegistry(List<SettingDefinition> definitions) {
+    /** For a registry with extra definitions (unit tests show how a new preference is added). */
+    public UserSettingsRegistry(List<SettingDefinition> definitions) {
         Map<String, SettingDefinition> byKey = new LinkedHashMap<>();
         for (SettingDefinition definition : definitions) {
             byKey.put(definition.key(), definition);
@@ -59,7 +59,8 @@ public class UserSettingsRegistry {
         this.definitions = Collections.unmodifiableMap(byKey);
     }
 
-    static List<SettingDefinition> builtIns() {
+    /** The built-in preferences. Adding a preference = one more entry here (no DDL). */
+    public static List<SettingDefinition> builtIns() {
         List<SettingDefinition> list = new ArrayList<>();
         list.add(new SettingDefinition(THEME, "SYSTEM", UserSettingsRegistry::parseTheme, stored -> stored));
         list.add(new SettingDefinition(BOARD_ZOOM, "1.0", UserSettingsRegistry::parseZoom, Double::parseDouble));

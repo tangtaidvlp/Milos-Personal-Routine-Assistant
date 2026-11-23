@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.service.reflection;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -53,16 +54,19 @@ public class GeminiReflectionAiService implements ReflectionAiService {
     private final ChatClient chatClient;
     private final ChatClient feedbackClient;
     private final JsonFunc jsonFunc;
+    private final Clock clock;
 
     public GeminiReflectionAiService(ChatClient.Builder chatBuilder,
                                      ChatClient.Builder feedbackBuilder,
                                      ReflectionAiTools reflectionAiTools,
-                                     JsonFunc jsonFunc) {
+                                     JsonFunc jsonFunc,
+                                     Clock clock) {
         // ChatClient.Builder is a prototype bean: each parameter is a fresh builder, so these
         // clients share no tools with GeminiAiChatService (which holds the plan tools).
         this.chatClient = chatBuilder.defaultSystem(CHAT_SYSTEM).defaultTools(reflectionAiTools).build();
         this.feedbackClient = feedbackBuilder.defaultSystem(FEEDBACK_SYSTEM).build();
         this.jsonFunc = jsonFunc;
+        this.clock = clock;
     }
 
     @Override
@@ -81,7 +85,7 @@ public class GeminiReflectionAiService implements ReflectionAiService {
                         + "\nThe reflection is for date: " + date + " (use this exact date in tool calls)."
                         + "\nCurrent reflection state (tasks = what really happened; plannedTasks = the plan, read only): "
                         + jsonFunc.parseToJson(view)
-                        + "\nToday's date is: " + LocalDate.now() + "."
+                        + "\nToday's date is: " + LocalDate.now(clock) + "."
                         + summaryBlock(context))
                 .messages(context.recentMessages())
                 .user(userMessage)

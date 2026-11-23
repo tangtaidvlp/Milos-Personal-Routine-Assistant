@@ -1,0 +1,19 @@
+# Always active in tests (with test-h2 or test-postgres), see support/TestDatabaseProfiles.
+# Not in SecurityConfig's allow-all list, so the real JWT filter runs.
+app:
+  scheduling:
+    enabled: false          # no midnight job during a run
+  cors:
+    allowed-origins: http://localhost
+
+spring:
+  ai:
+    active: false           # mock AI: tests never call Gemini
+    google:
+      genai:
+        api-key: test-key-not-used   # lets the context start without GEMINI_API_KEY
+  jpa:
+    # open-in-view stays at its default (on), as in the 'test' profile the EC2
+    # backend runs. The 'prod' profile turns it off; see AI-project-docs/bugs.
+    hibernate:
+      ddl-auto: create-drop

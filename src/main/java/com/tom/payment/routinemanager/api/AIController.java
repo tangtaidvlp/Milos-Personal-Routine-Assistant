@@ -1,5 +1,6 @@
 package com.tom.payment.routinemanager.api;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -24,6 +25,7 @@ import com.tom.payment.routinemanager.dto.ChatResponse;
 import com.tom.payment.routinemanager.dto.DailyRoutineChatRequest;
 import com.tom.payment.routinemanager.dto.ReflectionChatRequest;
 import com.tom.payment.routinemanager.dto.ReflectionView;
+import com.tom.payment.routinemanager.funcs.DayRules;
 import com.tom.payment.routinemanager.service.reflection.ReflectionAiService;
 import com.tom.payment.routinemanager.service.reflection.ReflectionService;
 import com.tom.payment.routinemanager.model.ChatConversation;
@@ -50,19 +52,22 @@ public class AIController {
     private final DefaultRoutineRepository defaultRoutineRepository;
     private final ReflectionService reflectionService;
     private final ReflectionAiService reflectionAi;
+    private final Clock clock;
 
     public AIController(AiChatService aiChatService,
                         ChatConversationService conversations,
                         CurrentUserGuard userGuard,
                         DefaultRoutineRepository defaultRoutineRepository,
                         ReflectionService reflectionService,
-                        ReflectionAiService reflectionAi) {
+                        ReflectionAiService reflectionAi,
+                        Clock clock) {
         this.aiChatService = aiChatService;
         this.conversations = conversations;
         this.userGuard = userGuard;
         this.defaultRoutineRepository = defaultRoutineRepository;
         this.reflectionService = reflectionService;
         this.reflectionAi = reflectionAi;
+        this.clock = clock;
     }
 
     @PostMapping("/chat/default-routine/{userId}")
@@ -147,7 +152,7 @@ public class AIController {
         if (date == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required");
         }
-        if (date.isAfter(LocalDate.now())) {
+        if (DayRules.isFuture(date, LocalDate.now(clock))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You can reflect once the day has happened");
         }
         ReflectionView view = reflectionService.getView(user, date);

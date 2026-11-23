@@ -22,4 +22,14 @@ public record ChatHistoryProperties(Integer compactionThreshold, Integer history
             throw new IllegalArgumentException("app.chat.history-page-size must be >= 1");
         }
     }
+
+    /** Messages per history page: the requested limit, clamped to 1..historyPageSize (default historyPageSize). */
+    public int pageSizeFor(Integer requested) {
+        return Math.max(1, Math.min(requested == null ? historyPageSize : requested, historyPageSize));
+    }
+
+    /** True once this many messages past the summary cursor call for a new summary. */
+    public boolean compactionDue(long messagesPastCursor) {
+        return messagesPastCursor >= compactionThreshold;
+    }
 }

@@ -1,4 +1,4 @@
-package com.tom.payment.routinemanager;
+package com.tom.payment.routinemanager.unit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
