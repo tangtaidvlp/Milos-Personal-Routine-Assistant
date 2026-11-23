@@ -58,7 +58,8 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
 
 - **`getOrCreateDailyRoutine()`** — for *today only*, auto-clones from the default routine if missing. For non-today dates, returns a transient (unsaved) empty routine — no silent writes.
 - **`ensureDailyRoutine()`** — explicit intent-driven create for any date. Always persists and clones from default.
-- **Task overlap handling** — `TaskTimeFunctions.shiftOverlappingTasks()` / `standardiseTasks()` push conflicting tasks later in time when a new task is inserted.
+- **Task overlap handling** — `TaskTimeFunctions.shiftOverlappingTasks()` / `standardiseTasks()` push conflicting tasks later in time when a new task is inserted. Overlap is checked on a 24h cycle.
+- **Overnight tasks (F011)** — a task that runs past midnight is one row (`startTime` + full `durationMinutes`; `endTime` may be earlier than `startTime`). Routine/daily task add and update reject `durationMinutes` outside 1–1440 with 400 (`TaskTimeFunctions.requireValidDuration`).
 - **Weekend vs weekday** — `DefaultRoutineService.resolveTemplateFor(user, date)` picks the template for every new day (`getOrCreateDailyRoutine`, `ensureDailyRoutine`, the midnight `DailyTaskSpawningJob`): Saturday/Sunday use the WEEKEND routine if it has at least one task, otherwise the DAILY one.
 - **`GET /api/v1/default-routine/users/{userId}?type=DAILY|WEEKEND`** (default DAILY) — `type=WEEKEND` creates an empty weekend routine if the user has none (idempotent; for users from before weekend routines). Invalid `type` → 400.
 

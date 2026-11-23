@@ -41,7 +41,7 @@ public class DailyRoutineAiTools {
     @Tool(description = "Add one or more tasks to the user's daily routine for a specific date. " +
             "The date must be in yyyy-MM-dd format. Each task needs name, description, startTime (HH:mm), durationMinutes, and completed status. " +
             "Leave color empty unless the user asks for one; the app assigns colors. " +
-            "If a task crosses midnight, split it into 2 tasks with the SAME name so they share a color.")
+            "A task may cross midnight: create ONE task with its startTime and full durationMinutes (e.g. sleep 22:00 with 480 minutes ends 06:00). Never split it.")
     public String addDailyTasks(
             @ToolParam(description = "The UUID of the user") String userId,
             @ToolParam(description = "The date in yyyy-MM-dd format") String date,

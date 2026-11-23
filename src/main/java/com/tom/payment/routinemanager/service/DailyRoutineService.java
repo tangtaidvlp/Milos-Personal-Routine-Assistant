@@ -101,6 +101,7 @@ public class DailyRoutineService {
     public List<DailyTask> addDailyTasks(UUID dailyRoutineId, List<DailyTask> tasks) {
         DailyRoutine routine = dailyRoutineRepository.findById(dailyRoutineId)
                 .orElseThrow(() -> new RuntimeException("Daily routine not found"));
+        tasks.forEach(task -> TaskTimeFunctions.requireValidDuration(task.getDurationMinutes()));
         routine.setColorCursor(taskColorService.assign(routine.getColorCursor(), tasks,
                 DailyTask::getName, DailyTask::getColor, DailyTask::setColor));
 
@@ -116,6 +117,7 @@ public class DailyRoutineService {
 
     @Transactional
     public List<DailyTask> updateDailyTasks(List<DailyTask> tasksDetails) {
+        tasksDetails.forEach(details -> TaskTimeFunctions.requireValidDuration(details.getDurationMinutes()));
         return tasksDetails.stream().map(details -> {
             DailyTask existing = dailyTaskRepository.findById(details.getId())
                     .orElseThrow(() -> new RuntimeException("Daily task not found: " + details.getId()));

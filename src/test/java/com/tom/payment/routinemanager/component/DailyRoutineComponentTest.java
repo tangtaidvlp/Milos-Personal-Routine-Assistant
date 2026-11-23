@@ -135,6 +135,51 @@ class DailyRoutineComponentTest extends BaseComponentTest {
     }
 
     @Test
+    void anOvernightTaskIsStoredAsOneTask() throws Exception {
+        TestUser user = newUser("daily");
+        LocalDate day = clock.today().plusDays(1);
+        String routineId = ensureDay(user, day).get("id").asText();
+
+        JsonNode created = read(mvc.perform(as(user, post(DAILY + "/" + routineId + "/tasks"),
+                List.of(task("Sleep", "22:00", 480)))).andExpect(status().isOk()));
+        assertEquals("06:00", created.get(0).get("endTime").asText());
+        String sleepId = created.get(0).get("id").asText();
+
+        mvc.perform(as(user, put(DAILY + "/tasks"), List.of(Map.of(
+                        "id", sleepId, "name", "Sleep", "startTime", "23:00", "durationMinutes", 480))))
+                .andExpect(status().isOk());
+        JsonNode tasks = day(user, day).get("tasks");
+        assertEquals(1, tasks.size());
+        assertEquals("23:00", tasks.get(0).get("startTime").asText());
+        assertEquals("07:00", tasks.get(0).get("endTime").asText());
+    }
+
+    @Test
+    void durationOutsideOneDayIsRefused() throws Exception {
+        TestUser user = newUser("daily");
+        LocalDate day = clock.today().plusDays(1);
+        String routineId = ensureDay(user, day).get("id").asText();
+        for (int minutes : new int[] {1441, 0}) {
+            JsonNode refusal = read(mvc.perform(as(user, post(DAILY + "/" + routineId + "/tasks"),
+                            List.of(task("Bad", "22:00", minutes))))
+                    .andExpect(error(HttpStatus.BAD_REQUEST)));
+            assertEquals("durationMinutes must be between 1 and 1440", refusal.get("message").asText());
+        }
+        assertEquals(0, day(user, day).get("tasks").size());
+    }
+
+    @Test
+    void anOvernightTemplateTaskIsCopiedToTheDayAsOneTask() throws Exception {
+        TestUser user = newUser("daily");
+        addTemplateTasks(user, "DAILY", List.of(task("Sleep", "22:00", 480)));
+
+        JsonNode tasks = ensureDay(user, clock.today().plusDays(1)).get("tasks");
+        assertEquals(List.of("Sleep"), names(tasks));
+        assertEquals(480, tasks.get(0).get("durationMinutes").asInt());
+        assertEquals("06:00", tasks.get(0).get("endTime").asText());
+    }
+
+    @Test
     void requestWithoutTokenIsNotAuthenticated() throws Exception {
         TestUser user = newUser("daily");
         mvc.perform(get(DAILY + "/" + user.id())).andExpect(error(HttpStatus.UNAUTHORIZED));
@@ -155,6 +200,11 @@ class DailyRoutineComponentTest extends BaseComponentTest {
 
     private JsonNode ensureDay(TestUser user, LocalDate date) throws Exception {
         return read(mvc.perform(as(user, post(DAILY + "/" + user.id()).param("date", date.toString())))
+                .andExpect(status().isOk()));
+    }
+
+    private JsonNode day(TestUser user, LocalDate date) throws Exception {
+        return read(mvc.perform(as(user, get(DAILY + "/" + user.id()).param("date", date.toString())))
                 .andExpect(status().isOk()));
     }
 

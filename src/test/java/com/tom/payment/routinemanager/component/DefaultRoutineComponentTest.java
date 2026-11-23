@@ -110,6 +110,37 @@ class DefaultRoutineComponentTest extends BaseComponentTest {
     }
 
     @Test
+    void anOvernightTaskIsStoredAsOneTask() throws Exception {
+        TestUser user = newUser("default");
+        String routineId = weekday(user).get("id").asText();
+
+        JsonNode created = addTasks(user, routineId, List.of(task("Sleep", "22:00", 480)));
+        assertEquals("06:00", created.get(0).get("endTime").asText());
+        assertEquals(1, weekday(user).get("tasks").size());
+
+        mvc.perform(as(user, put(BASE + "/tasks"), List.of(Map.of(
+                        "id", created.get(0).get("id").asText(), "name", "Sleep", "startTime", "23:00",
+                        "durationMinutes", 480))))
+                .andExpect(status().isOk());
+        JsonNode tasks = weekday(user).get("tasks");
+        assertEquals(1, tasks.size());
+        assertEquals("07:00", tasks.get(0).get("endTime").asText());
+    }
+
+    @Test
+    void durationOutsideOneDayIsRefused() throws Exception {
+        TestUser user = newUser("default");
+        String routineId = weekday(user).get("id").asText();
+        for (int minutes : new int[] {1441, 0}) {
+            JsonNode refusal = read(mvc.perform(as(user, post(BASE + "/" + routineId + "/tasks"),
+                            List.of(task("Bad", "22:00", minutes))))
+                    .andExpect(error(HttpStatus.BAD_REQUEST)));
+            assertEquals("durationMinutes must be between 1 and 1440", refusal.get("message").asText());
+        }
+        assertEquals(0, weekday(user).get("tasks").size());
+    }
+
+    @Test
     void requestWithoutTokenIsNotAuthenticated() throws Exception {
         TestUser user = newUser("default");
         mvc.perform(get(BASE + "/users/" + user.id())).andExpect(error(HttpStatus.UNAUTHORIZED));

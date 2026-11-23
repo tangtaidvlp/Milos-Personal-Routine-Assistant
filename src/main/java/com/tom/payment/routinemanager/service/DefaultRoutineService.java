@@ -140,6 +140,7 @@ public class DefaultRoutineService {
     public List<RoutineTaskTemplate> addDefaultTasks(UUID defaultRoutineId, List<RoutineTaskTemplate> tasks) {
         DefaultRoutine routine = defaultRoutineRepository.findById(defaultRoutineId)
                 .orElseThrow(() -> new RuntimeException("Default routine not found"));
+        tasks.forEach(task -> TaskTimeFunctions.requireValidDuration(task.getDurationMinutes()));
         assignColors(routine, tasks);
 
         List<RoutineTaskTemplate> savedTasks = tasks.stream().map(task -> {
@@ -154,6 +155,7 @@ public class DefaultRoutineService {
 
     @Transactional
     public List<RoutineTaskTemplate> updateDefaultTasks(List<RoutineTaskTemplate> tasksDetails) {
+        tasksDetails.forEach(details -> TaskTimeFunctions.requireValidDuration(details.getDurationMinutes()));
         return tasksDetails.stream().map(details -> {
             RoutineTaskTemplate existing = routineTaskTemplateRepository.findById(details.getId())
                     .orElseThrow(() -> new RuntimeException("Task template not found: " + details.getId()));

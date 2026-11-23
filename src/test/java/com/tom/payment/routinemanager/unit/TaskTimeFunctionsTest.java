@@ -15,6 +15,7 @@ import com.tom.payment.routinemanager.model.RoutineTaskTemplate;
 /**
  * Rule: inserting a task pushes overlapping later tasks to start when it ends,
  * keeping their duration; a pushed task can push the next one in turn.
+ * Overlap is on a 24h cycle: a task may run past midnight (F011).
  */
 class TaskTimeFunctionsTest {
 
@@ -86,6 +87,47 @@ class TaskTimeFunctionsTest {
         TaskTimeFunctions.shiftOverlappingTasks(new ArrayList<>(List.of(existing)), daily("Zero", "09:30", 0));
         TaskTimeFunctions.shiftOverlappingTasks(new ArrayList<>(List.of(existing)), null);
         assertEquals(LocalTime.of(9, 0), existing.getStartTime());
+    }
+
+    // ---------- overnight tasks (F011) ----------
+
+    @Test
+    void earlyMorningTemplateTaskIsPushedOutOfAnOvernightSleep() {
+        RoutineTaskTemplate early = template("Early", "05:30", 30);
+        TaskTimeFunctions.standardiseTasks(new ArrayList<>(List.of(early)), template("Sleep", "22:00", 480));
+        assertEquals(LocalTime.of(6, 0), early.getStartTime());
+    }
+
+    @Test
+    void earlyMorningDailyTaskIsPushedOutOfAnOvernightSleep() {
+        DailyTask early = daily("Early", "05:30", 30);
+        TaskTimeFunctions.shiftOverlappingTasks(new ArrayList<>(List.of(early)), daily("Sleep", "22:00", 480));
+        assertEquals(LocalTime.of(6, 0), early.getStartTime());
+    }
+
+    @Test
+    void middayTaskIsUntouchedByAnOvernightSleep() {
+        RoutineTaskTemplate lunch = template("Lunch", "12:00", 60);
+        DailyTask dailyLunch = daily("Lunch", "12:00", 60);
+        TaskTimeFunctions.standardiseTasks(new ArrayList<>(List.of(lunch)), template("Sleep", "22:00", 480));
+        TaskTimeFunctions.shiftOverlappingTasks(new ArrayList<>(List.of(dailyLunch)), daily("Sleep", "22:00", 480));
+        assertEquals(LocalTime.of(12, 0), lunch.getStartTime());
+        assertEquals(LocalTime.of(12, 0), dailyLunch.getStartTime());
+    }
+
+    @Test
+    void taskEndingAtMidnightDoesNotOverlapOneStartingAtMidnight() {
+        DailyTask atMidnight = daily("Midnight", "00:00", 30);
+        TaskTimeFunctions.shiftOverlappingTasks(new ArrayList<>(List.of(atMidnight)), daily("Late", "23:00", 60));
+        assertEquals(LocalTime.of(0, 0), atMidnight.getStartTime());
+    }
+
+    @Test
+    void newTaskInsideAnExistingOvernightTaskPushesIt() {
+        RoutineTaskTemplate sleep = template("Sleep", "22:00", 480);
+        TaskTimeFunctions.standardiseTasks(new ArrayList<>(List.of(sleep)), template("Late", "23:00", 60));
+        assertEquals(LocalTime.of(0, 0), sleep.getStartTime());
+        assertEquals(480, sleep.getDurationMinutes());
     }
 
     private static RoutineTaskTemplate template(String name, String start, int minutes) {

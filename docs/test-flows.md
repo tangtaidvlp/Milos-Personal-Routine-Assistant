@@ -31,8 +31,8 @@ Every refusal check uses `error(HttpStatus.X)`, which also checks the `ApiError`
 |---|---|---|---|---|
 | Sign up, sign in, keep the session, sign out | `SignInComponentTest` | 12 | register 201; login 200 with token and HttpOnly refresh cookie; refresh 200; logout clears the cookie | wrong email/password → 401 (same body); duplicate email → 409; refresh with no, unknown, revoked, expired or orphan token → 401 |
 | Onboarding: empty weekday and weekend routines | `OnboardingComponentTest` | 5 | registration creates both; a legacy user gets a weekend routine once; `type` defaults to DAILY | `type=FOO` → 400; no token → 401 |
-| Edit the weekday template | `DefaultRoutineComponentTest` | 7 | add tasks (end times computed); one overlap shift; rename; delete; replace routine | unknown colour → 400 with nothing stored; no token → 401 |
-| A day from the template, and daily tasks | `DailyRoutineComponentTest` | 6 | today copied and stored; other days read without being created; Saturday from the weekend template; add / complete / rename / delete | Buddy can't add to or reschedule a past day; no token → 401 |
+| Edit the weekday template | `DefaultRoutineComponentTest` | 9 | add tasks (end times computed); one overlap shift; rename; delete; replace routine; overnight task stays one task | unknown colour → 400 with nothing stored; duration outside 1–1440 → 400; no token → 401 |
+| A day from the template, and daily tasks | `DailyRoutineComponentTest` | 9 | today copied and stored; other days read without being created; Saturday from the weekend template; add / complete / rename / delete; overnight task stays one task, also when copied from the template | Buddy can't add to or reschedule a past day; duration outside 1–1440 → 400; no token → 401 |
 | Task colours | `TaskColorComponentTest` | 8 | auto colour + `nextColor`; chosen colour stored; update without colour keeps it; delete doesn't rewind; new day copies colours and cursor; midnight spawn copies colours; palette order; Buddy sets palette names | unknown colour → 400 on create and update; Buddy refuses hex and unknown names |
 | Account settings and profile | `UserSettingsComponentTest` | 11 | defaults; PATCH stored and marked customized; partial PATCH; profile without secrets; corrupt or unknown stored rows ignored | invalid PATCH → 400 with nothing written; unknown user 404; another user 403; no token 401 |
 | Chat with Buddy (history) | `ChatHistoryComponentTest` | 11 | exchanges stored in order; one conversation per routine and per date; context passed to the AI; paging back with no gaps | blank message or missing date → 400; unknown user or another user's routine → 404; AI failure → 5xx with nothing stored; no token → 401 |
@@ -46,7 +46,7 @@ Today is Wednesday 2026-11-18 in every component test (`clock`). Move it with `c
 | Rule | Code | Test | Tests |
 |---|---|---|---|
 | Colour round-robin, preselection, same-name sharing, validation | `service/TaskColorService` | `TaskColorServiceTest` | 8 |
-| Overlap shifting (template and daily) | `funcs/TaskTimeFunctions` | `TaskTimeFunctionsTest` | 8 |
+| Overlap shifting on a 24h cycle (template and daily) | `funcs/TaskTimeFunctions` | `TaskTimeFunctionsTest` | 13 |
 | Weekday vs weekend template | `funcs/RoutineTemplateRules` | `RoutineTemplateRulesTest` | 9 |
 | Past / future day | `funcs/DayRules` | `DayRulesTest` | 4 |
 | History page size; compaction due | `config/ChatHistoryProperties` | `ChatHistoryPropertiesTest` | 4 |
