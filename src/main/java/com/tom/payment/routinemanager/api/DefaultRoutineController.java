@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tom.payment.routinemanager.config.CurrentUserGuard;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.model.RoutineTaskTemplate;
 import com.tom.payment.routinemanager.service.DefaultRoutineService;
@@ -23,9 +24,18 @@ import com.tom.payment.routinemanager.service.DefaultRoutineService;
 public class DefaultRoutineController {
 
     private final DefaultRoutineService routineService;
+    private final CurrentUserGuard userGuard;
 
-    public DefaultRoutineController(DefaultRoutineService routineService) {
+    public DefaultRoutineController(DefaultRoutineService routineService, CurrentUserGuard userGuard) {
         this.routineService = routineService;
+        this.userGuard = userGuard;
+    }
+
+    /** Copy Weekday to Weekend (specs/F012): the Weekend routine's tasks become copies of the Weekday ones. */
+    @PostMapping("/users/{userId}/copy-weekday-to-weekend")
+    public ResponseEntity<Void> copyWeekdayToWeekend(@PathVariable UUID userId) {
+        routineService.copyWeekdayToWeekend(userGuard.requireUser(userId));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{routineId}/tasks")

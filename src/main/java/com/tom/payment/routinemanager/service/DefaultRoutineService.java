@@ -117,6 +117,33 @@ public class DefaultRoutineService {
     }
 
     /**
+     * Copy Weekday to Weekend (specs/F012): every Weekend task is replaced by a copy of a Weekday task
+     * (name, description, start, duration, colour), in one transaction. The Weekday routine is unchanged.
+     */
+    @Transactional
+    public void copyWeekdayToWeekend(User user) {
+        DefaultRoutine weekday = defaultRoutineRepository.findByUserAndRoutineType(user, DefaultRoutine.RoutineTypeEnum.DAILY)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default routine not found"));
+        DefaultRoutine weekend = getOrCreateDefaultRoutine(user.getId(), DefaultRoutine.RoutineTypeEnum.WEEKEND);
+
+        weekend.getTasks().clear();
+        // Delete the old rows before the copies are inserted.
+        defaultRoutineRepository.saveAndFlush(weekend);
+        weekday.getTasks().forEach(source -> {
+            RoutineTaskTemplate task = new RoutineTaskTemplate();
+            task.setName(source.getName());
+            task.setDescription(source.getDescription());
+            task.setStartTime(source.getStartTime());
+            task.setDurationMinutes(source.getDurationMinutes());
+            task.setColor(source.getColor());
+            task.setDefaultRoutine(weekend);
+            weekend.getTasks().add(task);
+        });
+        weekend.setColorCursor(weekday.getColorCursor());
+        defaultRoutineRepository.save(weekend);
+    }
+
+    /**
      * The default routine a given date is copied from (research R3):
      * Saturday/Sunday use the weekend routine if it has at least one task, otherwise the weekday routine.
      */

@@ -1,6 +1,7 @@
 package com.tom.payment.routinemanager.component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,8 +21,9 @@ import com.tom.payment.routinemanager.support.TestUser;
 /**
  * Flow: a user builds their weekday template (default routine) and edits its tasks.
  * Overlap-shift variations are in unit/TaskTimeFunctionsTest; colour rules in
- * unit/TaskColorServiceTest. Access to another user's routine is not asserted:
- * these endpoints have no ownership check yet (bug filed by F008, research R6).
+ * unit/TaskColorServiceTest. Access to another user's routine is not asserted, except
+ * for Copy Weekday to Weekend (F012): the older endpoints have no ownership check yet
+ * (bug filed by F008, research R6).
  */
 class DefaultRoutineComponentTest extends BaseComponentTest {
 
@@ -146,7 +148,59 @@ class DefaultRoutineComponentTest extends BaseComponentTest {
         mvc.perform(get(BASE + "/users/" + user.id())).andExpect(error(HttpStatus.UNAUTHORIZED));
     }
 
+    // ---------- Copy Weekday to Weekend (specs/F012) ----------
+
+    @Test
+    void copyReplacesTheWeekendTasksWithCopiesOfTheWeekdayOnes() throws Exception {
+        TestUser user = newUser("copy");
+        addTasks(user, weekday(user).get("id").asText(), List.of(
+                Map.of("name", "Work", "description", "Office", "startTime", "09:00", "durationMinutes", 240),
+                task("Gym", "18:00", 60)));
+        addTasks(user, weekend(user).get("id").asText(), List.of(task("Hike", "08:00", 180)));
+
+        mvc.perform(as(user, post(copyPath(user)))).andExpect(status().isNoContent());
+
+        JsonNode weekdayTasks = weekday(user).get("tasks");
+        JsonNode weekendTasks = weekend(user).get("tasks");
+        assertEquals(2, weekdayTasks.size());
+        assertEquals(2, weekendTasks.size());
+        for (JsonNode source : weekdayTasks) {
+            JsonNode copy = byName(weekendTasks, source.get("name").asText());
+            assertEquals(source.get("description").asText(), copy.get("description").asText());
+            assertEquals(source.get("startTime").asText(), copy.get("startTime").asText());
+            assertEquals(source.get("durationMinutes").asInt(), copy.get("durationMinutes").asInt());
+            assertEquals(source.get("color").asText(), copy.get("color").asText());
+            assertNotEquals(source.get("id").asText(), copy.get("id").asText());
+        }
+    }
+
+    @Test
+    void copyingAnEmptyWeekdayRoutineEmptiesTheWeekend() throws Exception {
+        TestUser user = newUser("copy");
+        addTasks(user, weekend(user).get("id").asText(), List.of(task("Hike", "08:00", 180)));
+
+        mvc.perform(as(user, post(copyPath(user)))).andExpect(status().isNoContent());
+
+        assertEquals(0, weekend(user).get("tasks").size());
+    }
+
+    @Test
+    void anotherUsersRoutineCannotBeCopied() throws Exception {
+        TestUser owner = newUser("copy");
+        TestUser other = newUser("copy");
+        mvc.perform(as(other, post(copyPath(owner)))).andExpect(error(HttpStatus.FORBIDDEN));
+    }
+
     // ---------- helpers ----------
+
+    private static String copyPath(TestUser user) {
+        return BASE + "/users/" + user.id() + "/copy-weekday-to-weekend";
+    }
+
+    private JsonNode weekend(TestUser user) throws Exception {
+        return read(mvc.perform(as(user, get(BASE + "/users/" + user.id()).param("type", "WEEKEND")))
+                .andExpect(status().isOk()));
+    }
 
     private JsonNode weekday(TestUser user) throws Exception {
         return read(mvc.perform(as(user, get(BASE + "/users/" + user.id()))).andExpect(status().isOk()));
