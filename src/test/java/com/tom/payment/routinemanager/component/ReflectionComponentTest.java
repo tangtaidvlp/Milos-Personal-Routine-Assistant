@@ -285,6 +285,19 @@ class ReflectionComponentTest extends BaseComponentTest {
         sendChat(user, today, "  ").andExpect(error(HttpStatus.BAD_REQUEST));
     }
 
+    @Test
+    void chatAiFailureIs503AndNothingIsStored() throws Exception {
+        TestUser user = newUser("reflect");
+        LocalDate today = clock.today();
+        ok(as(user, post(base(user, today))));
+        doThrow(new RuntimeException("provider down"))
+                .when(reflectionAi).chat(any(), any(), any(), any(), any(), any());
+
+        sendChat(user, today, "hello").andExpect(error(HttpStatus.SERVICE_UNAVAILABLE));
+        JsonNode history = ok(as(user, get("/api/ai/chat/daily-reflection/" + user.id() + "/" + today + "/messages")));
+        assertEquals(0, history.get("messages").size());
+    }
+
     // ---------- helpers ----------
 
     private static String base(TestUser user, LocalDate date) {
