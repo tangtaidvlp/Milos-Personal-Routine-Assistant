@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,8 +94,8 @@ public class AIController {
         logger.debug("AI chat request for user {}: {}", userId, message);
         ChatConversation conversation = conversations.getOrCreateDefaultRoutineConversation(user, request.getDefaultRoutine().getId());
         ChatContext context = conversations.buildContext(conversation.getId());
-        BuddyReply aiReply = aiChatService.defaultRoutineChat(userId, request.getDefaultRoutine(), context, message,
-                localTime(request.getLocalTime()));
+        BuddyReply aiReply = callAi(userId, () -> aiChatService.defaultRoutineChat(userId, request.getDefaultRoutine(),
+                context, message, localTime(request.getLocalTime())));
         conversations.appendExchange(conversation.getId(), message, aiReply.text());
         logger.debug("AI chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
@@ -113,8 +114,8 @@ public class AIController {
         logger.debug("AI daily routine chat request for user {} on {}: {}", userId, request.getDate(), message);
         ChatConversation conversation = conversations.getOrCreateDailyConversation(user, request.getDate());
         ChatContext context = conversations.buildContext(conversation.getId());
-        BuddyReply aiReply = aiChatService.dailyRoutineChat(userId, request.getDailyRoutine(), request.getDate(), context, message,
-                localTime(request.getLocalTime()));
+        BuddyReply aiReply = callAi(userId, () -> aiChatService.dailyRoutineChat(userId, request.getDailyRoutine(),
+                request.getDate(), context, message, localTime(request.getLocalTime())));
         conversations.appendExchange(conversation.getId(), message, aiReply.text());
         logger.debug("AI daily routine chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
@@ -173,7 +174,8 @@ public class AIController {
         logger.debug("AI reflection chat request for user {} on {}: {}", userId, date, message);
         ChatConversation conversation = conversations.getOrCreateReflectionConversation(user, date);
         ChatContext context = conversations.buildContext(conversation.getId());
-        BuddyReply aiReply = reflectionAi.chat(userId, date, view, context, message, localTime(request.localTime()));
+        BuddyReply aiReply = callAi(userId, () -> reflectionAi.chat(userId, date, view, context, message,
+                localTime(request.localTime())));
         conversations.appendExchange(conversation.getId(), message, aiReply.text());
         logger.debug("AI reflection chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
@@ -202,14 +204,8 @@ public class AIController {
         logger.debug("AI personal target chat request for user {}: {}", userId, message);
         ChatConversation conversation = conversations.getOrCreatePersonalTargetConversation(user);
         ChatContext context = conversations.buildContext(conversation.getId());
-        BuddyReply aiReply;
-        try {
-            aiReply = personalTargetAi.chat(userId, context, message, localTime(request.localTime()));
-        } catch (RuntimeException e) {
-            // Constitution V: an AI failure is a 503 and nothing is stored.
-            logger.warn("Personal target chat failed for user {}", userId, e);
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, ReflectionFeedbackService.AI_UNAVAILABLE);
-        }
+        BuddyReply aiReply = callAi(userId, () -> personalTargetAi.chat(userId, context, message,
+                localTime(request.localTime())));
         conversations.appendExchange(conversation.getId(), message, aiReply.text());
         logger.debug("AI personal target chat response for user {}: {}", userId, aiReply.text());
         return ResponseEntity.ok(reply(aiReply));
@@ -222,6 +218,16 @@ public class AIController {
             @RequestParam(required = false) Integer limit) {
         userGuard.requireUser(userId);
         return conversations.getHistory(conversations.findPersonalTargetConversation(userId), before, limit);
+    }
+
+    /** Constitution V: an AI failure is a 503 and nothing is stored. Never logs the message text. */
+    private static BuddyReply callAi(UUID userId, Supplier<BuddyReply> call) {
+        try {
+            return call.get();
+        } catch (RuntimeException e) {
+            logger.warn("Buddy chat failed for user {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, ReflectionFeedbackService.AI_UNAVAILABLE);
+        }
     }
 
     /** The user's local time for Buddy's tone (F015); a missing or malformed value is ignored, never refused. */

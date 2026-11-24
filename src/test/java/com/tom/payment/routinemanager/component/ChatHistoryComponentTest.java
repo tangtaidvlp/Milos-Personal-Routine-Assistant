@@ -156,8 +156,18 @@ class ChatHistoryComponentTest extends BaseComponentTest {
         TestUser user = newUser("chat");
         doThrow(new RuntimeException("AI down"))
                 .when(aiChatService).dailyRoutineChat(any(), any(), any(), any(), anyString(), any());
-        sendDaily(user, DAY, "will fail").andExpect(error(HttpStatus.INTERNAL_SERVER_ERROR));
+        sendDaily(user, DAY, "will fail").andExpect(error(HttpStatus.SERVICE_UNAVAILABLE));
         assertEquals(0, history(user, dailyHistoryUrl(user.id(), DAY)).get("messages").size());
+    }
+
+    @Test
+    void failedDefaultRoutineAiCallIs503AndStoresNothing() throws Exception {
+        TestUser user = newUser("chat");
+        UUID routine = weekdayRoutineId(user);
+        doThrow(new RuntimeException("provider down"))
+                .when(aiChatService).defaultRoutineChat(any(), any(), any(), anyString(), any());
+        sendRoutine(user, routine, "will fail").andExpect(error(HttpStatus.SERVICE_UNAVAILABLE));
+        assertEquals(0, history(user, routineHistoryUrl(user.id(), routine)).get("messages").size());
     }
 
     @Test
