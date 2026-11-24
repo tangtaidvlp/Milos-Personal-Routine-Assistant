@@ -38,6 +38,7 @@ import com.tom.payment.routinemanager.model.DefaultRoutine;
 import com.tom.payment.routinemanager.model.User;
 import com.tom.payment.routinemanager.repository.DefaultRoutineRepository;
 import com.tom.payment.routinemanager.service.AiChatService;
+import com.tom.payment.routinemanager.service.AiRateLimiter;
 import com.tom.payment.routinemanager.service.BuddyReply;
 import com.tom.payment.routinemanager.service.PersonalTargetAiService;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
@@ -61,6 +62,7 @@ public class AIController {
     private final ReflectionAiService reflectionAi;
     private final PersonalTargetAiService personalTargetAi;
     private final Clock clock;
+    private final AiRateLimiter rateLimiter;
 
     public AIController(AiChatService aiChatService,
                         ChatConversationService conversations,
@@ -69,7 +71,8 @@ public class AIController {
                         ReflectionService reflectionService,
                         ReflectionAiService reflectionAi,
                         PersonalTargetAiService personalTargetAi,
-                        Clock clock) {
+                        Clock clock,
+                        AiRateLimiter rateLimiter) {
         this.aiChatService = aiChatService;
         this.conversations = conversations;
         this.userGuard = userGuard;
@@ -78,6 +81,7 @@ public class AIController {
         this.reflectionAi = reflectionAi;
         this.personalTargetAi = personalTargetAi;
         this.clock = clock;
+        this.rateLimiter = rateLimiter;
     }
 
     @PostMapping("/chat/default-routine/{userId}")
@@ -220,8 +224,9 @@ public class AIController {
         return conversations.getHistory(conversations.findPersonalTargetConversation(userId), before, limit);
     }
 
-    /** Constitution V: an AI failure is a 503 and nothing is stored. Never logs the message text. */
-    private static BuddyReply callAi(UUID userId, Supplier<BuddyReply> call) {
+    /** Constitution V: an AI failure is a 503 and nothing is stored; over the rate limit is a 429. Never logs the message text. */
+    private BuddyReply callAi(UUID userId, Supplier<BuddyReply> call) {
+        rateLimiter.acquire(userId); // outside the try: a 429 must not become a 503
         try {
             return call.get();
         } catch (RuntimeException e) {

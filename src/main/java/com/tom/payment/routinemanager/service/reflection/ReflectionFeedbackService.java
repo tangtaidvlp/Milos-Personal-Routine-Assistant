@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.tom.payment.routinemanager.dto.ReflectionView;
 import com.tom.payment.routinemanager.model.User;
+import com.tom.payment.routinemanager.service.AiRateLimiter;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ public class ReflectionFeedbackService {
 
     private final ReflectionService reflectionService;
     private final ReflectionAiService reflectionAi;
+    private final AiRateLimiter rateLimiter;
 
     /** On AI failure: 503 and the earlier note is kept. */
     public ReflectionView generate(User user, LocalDate date, LocalTime localTime) {
@@ -34,6 +36,7 @@ public class ReflectionFeedbackService {
         if (!view.exists()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reflection not found");
         }
+        rateLimiter.acquire(user.getId()); // outside the try: a 429 must not become a 503
         // Taken before the AI call: an edit made while Buddy writes makes the note stale.
         Instant basedOn = Instant.now();
         String note;

@@ -5,6 +5,9 @@ app:
     enabled: false          # no midnight job during a run
   cors:
     allowed-origins: http://localhost
+  ai:
+    rate-limit:
+      per-minute: 20      # all tests share one fixed instant; the busiest test sends 15 messages for one user
 
 spring:
   ai:
