@@ -2,6 +2,7 @@ package com.tom.payment.routinemanager.service.reflection;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -10,6 +11,11 @@ import org.springframework.stereotype.Service;
 
 import com.tom.payment.routinemanager.dto.ReflectionView;
 import com.tom.payment.routinemanager.funcs.JsonFunc;
+import com.tom.payment.routinemanager.service.BuddyCall;
+import com.tom.payment.routinemanager.service.BuddyContextService;
+import com.tom.payment.routinemanager.service.BuddyReply;
+import com.tom.payment.routinemanager.service.PersonalGoalService;
+import com.tom.payment.routinemanager.service.aitools.GoalProposalTool;
 import com.tom.payment.routinemanager.service.aitools.ReflectionAiTools;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 
@@ -39,7 +45,7 @@ public class GeminiReflectionAiService implements ReflectionAiService {
             remove things they skipped, add things they did that were not planned.
             Use task ids from the reflection state. After changing anything, tell the user briefly what you added, changed or removed.
             If it is unclear which task the user means, ask one short follow-up question instead of guessing.
-            Only talk about the user's day, routine and reflection; politely decline anything else.
+            Only talk about the user's day, routine, reflection and personal goals; politely decline anything else.
             """ + TONE_RULES;
 
     private static final String FEEDBACK_SYSTEM = """
@@ -55,42 +61,56 @@ public class GeminiReflectionAiService implements ReflectionAiService {
     private final ChatClient feedbackClient;
     private final JsonFunc jsonFunc;
     private final Clock clock;
+    private final PersonalGoalService goalService;
+    private final BuddyContextService buddyContext;
 
     public GeminiReflectionAiService(ChatClient.Builder chatBuilder,
                                      ChatClient.Builder feedbackBuilder,
                                      ReflectionAiTools reflectionAiTools,
                                      JsonFunc jsonFunc,
-                                     Clock clock) {
+                                     Clock clock,
+                                     PersonalGoalService goalService,
+                                     BuddyContextService buddyContext) {
         // ChatClient.Builder is a prototype bean: each parameter is a fresh builder, so these
         // clients share no tools with GeminiAiChatService (which holds the plan tools).
         this.chatClient = chatBuilder.defaultSystem(CHAT_SYSTEM).defaultTools(reflectionAiTools).build();
         this.feedbackClient = feedbackBuilder.defaultSystem(FEEDBACK_SYSTEM).build();
         this.jsonFunc = jsonFunc;
         this.clock = clock;
+        this.goalService = goalService;
+        this.buddyContext = buddyContext;
     }
 
     @Override
-    public String feedback(ReflectionView view) {
+    public String feedback(UUID userId, ReflectionView view, LocalTime localTime) {
+        // E001: the user's goals (F013) and tone (F014); this client has no tools, so no proposals.
         return feedbackClient.prompt()
+                .system(FEEDBACK_SYSTEM + buddyContext.promptBlock(userId, BuddyCall.REFLECTION_FEEDBACK, localTime)
+                        + "\nIf the user has goals, connect the note to one of them where it fits naturally."
+                        + " Keep following the tone rules above in the user's chosen tone.")
                 .user("Date: " + view.date() + "\nComparison: " + jsonFunc.parseToJson(view.comparison()))
                 .call()
                 .content();
     }
 
     @Override
-    public String chat(UUID userId, LocalDate date, ReflectionView view, ChatContext context, String userMessage) {
-        return chatClient.prompt()
+    public BuddyReply chat(UUID userId, LocalDate date, ReflectionView view, ChatContext context, String userMessage, LocalTime localTime) {
+        GoalProposalTool proposals = new GoalProposalTool(userId, goalService);
+        String content = chatClient.prompt()
                 .system(CHAT_SYSTEM
                         + "\nCurrent user's ID is: " + userId + ". You MUST use this ID whenever a tool requires a 'userId'."
                         + "\nThe reflection is for date: " + date + " (use this exact date in tool calls)."
                         + "\nCurrent reflection state (tasks = what really happened; plannedTasks = the plan, read only): "
                         + jsonFunc.parseToJson(view)
                         + "\nToday's date is: " + LocalDate.now(clock) + "."
+                        + buddyContext.promptBlock(userId, BuddyCall.REFLECTION_CHAT, localTime)
                         + summaryBlock(context))
                 .messages(context.recentMessages())
                 .user(userMessage)
+                .tools(proposals)
                 .call()
                 .content();
+        return new BuddyReply(content, proposals.proposal().orElse(null));
     }
 
     private static String summaryBlock(ChatContext context) {

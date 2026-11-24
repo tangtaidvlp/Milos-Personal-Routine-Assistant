@@ -2,6 +2,7 @@ package com.tom.payment.routinemanager.service.reflection;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ public class ReflectionFeedbackService {
     private final ReflectionAiService reflectionAi;
 
     /** On AI failure: 503 and the earlier note is kept. */
-    public ReflectionView generate(User user, LocalDate date) {
+    public ReflectionView generate(User user, LocalDate date, LocalTime localTime) {
         ReflectionView view = reflectionService.getView(user, date);
         if (!view.exists()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reflection not found");
@@ -37,7 +38,7 @@ public class ReflectionFeedbackService {
         Instant basedOn = Instant.now();
         String note;
         try {
-            note = reflectionAi.feedback(view);
+            note = reflectionAi.feedback(user.getId(), view, localTime);
         } catch (RuntimeException e) {
             log.warn("Reflection feedback failed for user {} on {}", user.getId(), date, e);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, AI_UNAVAILABLE);

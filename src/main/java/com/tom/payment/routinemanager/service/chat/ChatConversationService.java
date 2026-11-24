@@ -37,7 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Stores Buddy conversations and builds Buddy's context from them.
- * One conversation per (user, default routine), per (user, date) and per (user, date) reflection (F007).
+ * One conversation per (user, default routine), per (user, date), per (user, date) reflection (F007)
+ * and one Personal Target chat per user (F013 US4).
  */
 @Slf4j
 @Service
@@ -70,6 +71,18 @@ public class ChatConversationService {
     public Optional<ChatConversation> findReflectionConversation(UUID userId, LocalDate date) {
         return conversationRepository.findByUser_IdAndTypeAndRoutineDate(
                 userId, ChatConversationType.DAILY_REFLECTION, date);
+    }
+
+    /** The Personal Target chat (F013 US4): one per user. */
+    @Transactional(readOnly = true)
+    public Optional<ChatConversation> findPersonalTargetConversation(UUID userId) {
+        return conversationRepository.findByUser_IdAndType(userId, ChatConversationType.PERSONAL_TARGET);
+    }
+
+    public ChatConversation getOrCreatePersonalTargetConversation(User user) {
+        return getOrCreate(
+                () -> findPersonalTargetConversation(user.getId()),
+                () -> ChatConversation.forPersonalTarget(user));
     }
 
     public ChatConversation getOrCreateReflectionConversation(User user, LocalDate date) {

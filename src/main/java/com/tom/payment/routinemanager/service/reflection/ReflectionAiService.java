@@ -1,9 +1,11 @@
 package com.tom.payment.routinemanager.service.reflection;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 import com.tom.payment.routinemanager.dto.ReflectionView;
+import com.tom.payment.routinemanager.service.BuddyReply;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 
 /**
@@ -12,9 +14,9 @@ import com.tom.payment.routinemanager.service.chat.ChatContext;
  */
 public interface ReflectionAiService {
 
-    /** A short, encouraging note about the day's plan vs reality. */
-    String feedback(ReflectionView view);
+    /** A short, encouraging note about the day's plan vs reality; may relate it to the user's goals (F013). */
+    String feedback(UUID userId, ReflectionView view, LocalTime localTime);
 
-    /** One chat turn; may edit the reflection (never the plan) through its tools. */
-    String chat(UUID userId, LocalDate date, ReflectionView view, ChatContext context, String userMessage);
+    /** One chat turn; may edit the reflection (never the plan) and propose a goal change (F013). */
+    BuddyReply chat(UUID userId, LocalDate date, ReflectionView view, ChatContext context, String userMessage, LocalTime localTime);
 }

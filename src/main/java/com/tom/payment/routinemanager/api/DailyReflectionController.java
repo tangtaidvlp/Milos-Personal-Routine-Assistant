@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tom.payment.routinemanager.funcs.TimeOfDay;
 import com.tom.payment.routinemanager.config.CurrentUserGuard;
 import com.tom.payment.routinemanager.dto.ReflectionTaskInput;
 import com.tom.payment.routinemanager.dto.ReflectionView;
@@ -74,7 +75,9 @@ public class DailyReflectionController {
     /** Buddy's encouraging note; 503 if Buddy is unavailable (earlier note kept). */
     @PostMapping("/feedback")
     public ReflectionView feedback(@PathVariable UUID userId,
-                                   @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return feedbackService.generate(userGuard.requireUser(userId), date);
+                                   @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                   @RequestParam(required = false) String localTime) {
+        // F015: the user's local time shapes Buddy's tone; a missing or malformed value is ignored.
+        return feedbackService.generate(userGuard.requireUser(userId), date, TimeOfDay.parse(localTime).orElse(null));
     }
 }

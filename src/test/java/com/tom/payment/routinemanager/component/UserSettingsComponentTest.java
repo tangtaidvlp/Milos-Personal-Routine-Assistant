@@ -81,6 +81,23 @@ class UserSettingsComponentTest extends BaseComponentTest {
     }
 
     @Test
+    void buddyToneDefaultsToBalancedAndIsSavedUpperCase() throws Exception {
+        TestUser user = newUser("settings");
+        assertEquals("BALANCED", getSettings(user, user.id()).at("/settings/buddyTone").asText());
+
+        JsonNode patched = read(patchSettings(user, user.id(), "{\"buddyTone\":\"warm_anchor\"}").andExpect(status().isOk()));
+        assertEquals("WARM_ANCHOR", patched.at("/settings/buddyTone").asText());
+        assertTrue(customized(patched).contains("buddyTone"));
+        assertTrue(settingRepository.findByUserId(user.id()).stream()
+                .anyMatch(row -> row.getSettingKey().equals("buddyTone") && row.getSettingValue().equals("WARM_ANCHOR")));
+
+        JsonNode refused = read(patchSettings(user, user.id(), "{\"buddyTone\":\"ROBOT\"}").andExpect(error(HttpStatus.BAD_REQUEST)));
+        assertEquals("buddyTone must be one of BALANCED, CHIEF_OF_STAFF, STOIC, SOCRATIC_PEER, WARM_ANCHOR, ACCOUNTABILITY_COACH",
+                refused.get("message").asText());
+        assertEquals("WARM_ANCHOR", getSettings(user, user.id()).at("/settings/buddyTone").asText());
+    }
+
+    @Test
     void unknownUserIsNotFound() throws Exception {
         TestUser user = newUser("settings");
         UUID missing = UUID.randomUUID();

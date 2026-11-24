@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.tom.payment.routinemanager.dto.UserSettingsView;
+import com.tom.payment.routinemanager.funcs.BuddyTone;
 import com.tom.payment.routinemanager.model.User;
 import com.tom.payment.routinemanager.model.UserSetting;
 import com.tom.payment.routinemanager.repository.UserSettingRepository;
@@ -46,6 +48,17 @@ public class UserSettingsService {
             }
         }
         return new UserSettingsView(settings, customized);
+    }
+
+    /** Buddy's tone for a user (F014); {@code BALANCED} when none or an unknown one is stored. */
+    @Transactional(readOnly = true)
+    public BuddyTone buddyTone(UUID userId) {
+        String stored = repository.findByUserId(userId).stream()
+                .filter(row -> UserSettingsRegistry.BUDDY_TONE.equals(row.getSettingKey()))
+                .map(UserSetting::getSettingValue)
+                .findFirst()
+                .orElse(null);
+        return BuddyTone.fromStored(String.valueOf(registry.effectiveValue(UserSettingsRegistry.BUDDY_TONE, stored)));
     }
 
     /**

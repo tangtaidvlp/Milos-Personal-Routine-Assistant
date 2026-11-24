@@ -63,12 +63,12 @@ class ChatCompactionComponentTest extends BaseComponentTest {
 
         send(user, "next");
         ArgumentCaptor<ChatContext> captor = ArgumentCaptor.forClass(ChatContext.class);
-        verify(aiChatService).dailyRoutineChat(eq(user.id()), any(), eq(DAY), captor.capture(), eq("next"));
+        verify(aiChatService).dailyRoutineChat(eq(user.id()), any(), eq(DAY), captor.capture(), eq("next"), any());
         assertNotNull(captor.getValue().summary());
         assertEquals(0, captor.getValue().recentMessages().size(), "everything up to seq 20 is in the summary");
 
         send(user, "after that");
-        verify(aiChatService).dailyRoutineChat(eq(user.id()), any(), eq(DAY), captor.capture(), eq("after that"));
+        verify(aiChatService).dailyRoutineChat(eq(user.id()), any(), eq(DAY), captor.capture(), eq("after that"), any());
         assertEquals(2, captor.getValue().recentMessages().size());
     }
 
