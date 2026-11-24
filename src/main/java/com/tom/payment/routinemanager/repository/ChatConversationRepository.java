@@ -20,6 +20,9 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
 
     Optional<ChatConversation> findByUser_IdAndTypeAndRoutineDate(UUID userId, ChatConversationType type, LocalDate routineDate);
 
+    /** Only for types with one conversation per user (PERSONAL_TARGET). */
+    Optional<ChatConversation> findByUser_IdAndType(UUID userId, ChatConversationType type);
+
     /** Row lock used to assign message seqs and to serialise compaction. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from ChatConversation c where c.id = :id")

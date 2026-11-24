@@ -13,6 +13,8 @@ public enum BuddyCall {
     /** The Today chat: quick day-to-day help. */
     DAILY_CHAT(true, ChatKind.DAY_TO_DAY),
     REFLECTION_CHAT(true, ChatKind.DEEP),
+    /** The Personal Target chat (F013 US4): coaching on goals; it can only propose goals. */
+    PERSONAL_TARGET_CHAT(true, ChatKind.DEEP),
     /** Buddy's reflection note: no tools. */
     REFLECTION_FEEDBACK(false, ChatKind.DEEP);
 

@@ -54,6 +54,7 @@ class PersonalGoalPromptTest {
         String block = PersonalGoalPrompt.format(List.of(goal("Run", null)), true);
         assertTrue(block.contains("call the proposeGoal tool"));
         assertTrue(block.contains("never say a goal is saved"));
+        assertTrue(block.contains("Only propose goals that are realistic, achievable and safe."));
     }
 
     @Test

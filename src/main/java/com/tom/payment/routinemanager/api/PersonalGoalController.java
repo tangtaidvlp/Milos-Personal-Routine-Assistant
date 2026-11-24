@@ -3,6 +3,7 @@ package com.tom.payment.routinemanager.api;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,8 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.tom.payment.routinemanager.config.CurrentUserGuard;
 import com.tom.payment.routinemanager.dto.GoalListView;
 import com.tom.payment.routinemanager.dto.GoalRequest;
+import com.tom.payment.routinemanager.dto.GoalSaveView;
 import com.tom.payment.routinemanager.dto.GoalView;
 import com.tom.payment.routinemanager.funcs.GoalRules;
+import com.tom.payment.routinemanager.service.GoalSaveResult;
 import com.tom.payment.routinemanager.service.PersonalGoalService;
 
 import lombok.RequiredArgsConstructor;
@@ -40,17 +43,18 @@ public class PersonalGoalController {
         return new GoalListView(goalService.list(userId).stream().map(GoalView::of).toList(), GoalRules.MAX_GOALS);
     }
 
+    /** 201 + {@code goal} when saved; 200 + {@code review} when Buddy refused it (US5). */
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public GoalView create(@PathVariable UUID userId, @RequestBody GoalRequest request) {
+    public ResponseEntity<GoalSaveView> create(@PathVariable UUID userId, @RequestBody GoalRequest request) {
         currentUserGuard.requireUser(userId);
-        return GoalView.of(goalService.create(userId, request));
+        GoalSaveResult result = goalService.create(userId, request);
+        return ResponseEntity.status(result.goal() != null ? HttpStatus.CREATED : HttpStatus.OK).body(GoalSaveView.of(result));
     }
 
     @PutMapping("/{goalId}")
-    public GoalView update(@PathVariable UUID userId, @PathVariable UUID goalId, @RequestBody GoalRequest request) {
+    public GoalSaveView update(@PathVariable UUID userId, @PathVariable UUID goalId, @RequestBody GoalRequest request) {
         currentUserGuard.requireUser(userId);
-        return GoalView.of(goalService.update(userId, goalId, request));
+        return GoalSaveView.of(goalService.update(userId, goalId, request));
     }
 
     @DeleteMapping("/{goalId}")

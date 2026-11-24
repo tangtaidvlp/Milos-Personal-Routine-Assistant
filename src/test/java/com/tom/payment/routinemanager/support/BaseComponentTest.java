@@ -33,6 +33,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tom.payment.routinemanager.service.AiChatService;
+import com.tom.payment.routinemanager.service.GoalReviewer;
+import com.tom.payment.routinemanager.service.PersonalTargetAiService;
 import com.tom.payment.routinemanager.service.chat.ChatSummarizer;
 import com.tom.payment.routinemanager.service.reflection.ReflectionAiService;
 
@@ -67,6 +69,12 @@ public abstract class BaseComponentTest {
 
     @MockitoSpyBean
     protected ReflectionAiService reflectionAi;
+
+    @MockitoSpyBean
+    protected PersonalTargetAiService personalTargetAi;
+
+    @MockitoSpyBean
+    protected GoalReviewer goalReviewer;
 
     protected final ObjectMapper json = new ObjectMapper();
 

@@ -29,9 +29,11 @@ public final class PersonalGoalPrompt {
             - You cannot delete goals. If the user wants to remove one, tell them to do it on the Personal Target page.""";
 
     static final String PROPOSE_RULE = "- To add a goal or change one, call the proposeGoal tool (pass the goal's id to change it). "
-            + "The user confirms it in the app, so never say a goal is saved; say it is ready for them to confirm.";
+            + "The user confirms it in the app, so never say a goal is saved; say it is ready for them to confirm. "
+            + "Only propose goals that are realistic, achievable and safe.";
 
-    static final String PROPOSE_RULE_NO_GOALS = "If the user asks to set a goal, call the proposeGoal tool; they confirm it in the app.";
+    static final String PROPOSE_RULE_NO_GOALS = "If the user asks to set a goal, call the proposeGoal tool; they confirm it in the app. "
+            + "Only propose goals that are realistic, achievable and safe.";
 
     private PersonalGoalPrompt() {
     }

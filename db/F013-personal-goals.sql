@@ -17,3 +17,8 @@ CREATE TABLE IF NOT EXISTS personal_goal (
 );
 
 CREATE INDEX IF NOT EXISTS idx_personal_goal_user ON personal_goal (user_id, created_at);
+
+-- Buddy chat on the Personal Target page (F013 US4): one conversation per user.
+-- chat_conversation.type is VARCHAR(32), so no column change.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_chat_conv_personal_target
+  ON chat_conversation (user_id) WHERE type = 'PERSONAL_TARGET';

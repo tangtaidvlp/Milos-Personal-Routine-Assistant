@@ -102,6 +102,13 @@ public class ChatConversation {
         return c;
     }
 
+    public static ChatConversation forPersonalTarget(User user) {
+        ChatConversation c = new ChatConversation();
+        c.user = user;
+        c.type = ChatConversationType.PERSONAL_TARGET;
+        return c;
+    }
+
     public static ChatConversation forDailyReflection(User user, LocalDate date) {
         ChatConversation c = new ChatConversation();
         c.user = user;

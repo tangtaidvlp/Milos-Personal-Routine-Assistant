@@ -144,7 +144,7 @@ class GoalProposalComponentTest extends BaseComponentTest {
         body.put("goal", goal);
         body.put("howToHelp", howToHelp);
         return read(mvc.perform(as(user, post("/api/v1/users/" + user.id() + "/goals"), body))
-                .andExpect(status().isCreated())).get("id").asText();
+                .andExpect(status().isCreated())).at("/goal/id").asText();
     }
 
     private ResultActions sendDaily(TestUser user, String message) throws Exception {

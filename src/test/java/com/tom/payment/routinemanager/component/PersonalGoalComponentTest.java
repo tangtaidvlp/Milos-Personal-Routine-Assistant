@@ -48,7 +48,7 @@ class PersonalGoalComponentTest extends BaseComponentTest {
     void createdGoalIsTrimmedStoredAndListed() throws Exception {
         TestUser user = newUser("goals");
         JsonNode created = read(createGoal(user, "  Run a 10k by March  ", "  Keep me training 3x a week ")
-                .andExpect(status().isCreated()));
+                .andExpect(status().isCreated())).get("goal");
         assertEquals("Run a 10k by March", created.get("goal").asText());
         assertEquals("Keep me training 3x a week", created.get("howToHelp").asText());
 
@@ -57,7 +57,7 @@ class PersonalGoalComponentTest extends BaseComponentTest {
         assertEquals("Run a 10k by March", stored.getGoal());
 
         clock.advance(Duration.ofMinutes(1)); // the test clock is fixed; goals are listed by creation time
-        JsonNode noHelp = read(createGoal(user, "Sleep by 11 PM", null).andExpect(status().isCreated()));
+        JsonNode noHelp = read(createGoal(user, "Sleep by 11 PM", null).andExpect(status().isCreated())).get("goal");
         assertTrue(noHelp.get("howToHelp").isNull());
         JsonNode list = read(mvc.perform(as(user, get(goalsUrl(user.id())))).andExpect(status().isOk()));
         assertEquals(2, list.get("goals").size());
@@ -89,12 +89,12 @@ class PersonalGoalComponentTest extends BaseComponentTest {
     @Test
     void updateReplacesBothTextsAndDeleteRemovesTheGoal() throws Exception {
         TestUser user = newUser("goals");
-        JsonNode created = read(createGoal(user, "Run a 10k", "Keep me training").andExpect(status().isCreated()));
+        JsonNode created = read(createGoal(user, "Run a 10k", "Keep me training").andExpect(status().isCreated())).get("goal");
         String id = created.get("id").asText();
 
         clock.advance(Duration.ofMinutes(5));
         JsonNode updated = read(mvc.perform(as(user, put(goalUrl(user.id(), id)), goalBody("Run a half marathon", " ")))
-                .andExpect(status().isOk()));
+                .andExpect(status().isOk())).get("goal");
         assertEquals("Run a half marathon", updated.get("goal").asText());
         assertTrue(updated.get("howToHelp").isNull());
         assertNotEquals(created.get("updatedAt").asText(), updated.get("updatedAt").asText());
@@ -109,7 +109,7 @@ class PersonalGoalComponentTest extends BaseComponentTest {
     void anotherUsersGoalCannotBeChangedOrDeleted() throws Exception {
         TestUser owner = newUser("goals");
         TestUser other = newUser("goals");
-        String id = read(createGoal(owner, "Run a 10k", null).andExpect(status().isCreated())).get("id").asText();
+        String id = read(createGoal(owner, "Run a 10k", null).andExpect(status().isCreated())).at("/goal/id").asText();
 
         // Through their own path the goal id is simply not theirs.
         JsonNode notFound = read(mvc.perform(as(other, put(goalUrl(other.id(), id)), goalBody("Mine now", null)))

@@ -24,11 +24,13 @@ import com.tom.payment.routinemanager.dto.ChatHistoryPage;
 import com.tom.payment.routinemanager.dto.ChatRequest;
 import com.tom.payment.routinemanager.dto.ChatResponse;
 import com.tom.payment.routinemanager.dto.DailyRoutineChatRequest;
+import com.tom.payment.routinemanager.dto.PersonalTargetChatRequest;
 import com.tom.payment.routinemanager.dto.ReflectionChatRequest;
 import com.tom.payment.routinemanager.dto.ReflectionView;
 import com.tom.payment.routinemanager.funcs.DayRules;
 import com.tom.payment.routinemanager.funcs.TimeOfDay;
 import com.tom.payment.routinemanager.service.reflection.ReflectionAiService;
+import com.tom.payment.routinemanager.service.reflection.ReflectionFeedbackService;
 import com.tom.payment.routinemanager.service.reflection.ReflectionService;
 import com.tom.payment.routinemanager.model.ChatConversation;
 import com.tom.payment.routinemanager.model.DefaultRoutine;
@@ -36,6 +38,7 @@ import com.tom.payment.routinemanager.model.User;
 import com.tom.payment.routinemanager.repository.DefaultRoutineRepository;
 import com.tom.payment.routinemanager.service.AiChatService;
 import com.tom.payment.routinemanager.service.BuddyReply;
+import com.tom.payment.routinemanager.service.PersonalTargetAiService;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 import com.tom.payment.routinemanager.service.chat.ChatConversationService;
 
@@ -55,6 +58,7 @@ public class AIController {
     private final DefaultRoutineRepository defaultRoutineRepository;
     private final ReflectionService reflectionService;
     private final ReflectionAiService reflectionAi;
+    private final PersonalTargetAiService personalTargetAi;
     private final Clock clock;
 
     public AIController(AiChatService aiChatService,
@@ -63,6 +67,7 @@ public class AIController {
                         DefaultRoutineRepository defaultRoutineRepository,
                         ReflectionService reflectionService,
                         ReflectionAiService reflectionAi,
+                        PersonalTargetAiService personalTargetAi,
                         Clock clock) {
         this.aiChatService = aiChatService;
         this.conversations = conversations;
@@ -70,6 +75,7 @@ public class AIController {
         this.defaultRoutineRepository = defaultRoutineRepository;
         this.reflectionService = reflectionService;
         this.reflectionAi = reflectionAi;
+        this.personalTargetAi = personalTargetAi;
         this.clock = clock;
     }
 
@@ -181,6 +187,41 @@ public class AIController {
             @RequestParam(required = false) Integer limit) {
         userGuard.requireUser(userId);
         return conversations.getHistory(conversations.findReflectionConversation(userId, date), before, limit);
+    }
+
+    /**
+     * Buddy chat on the Personal Target page (specs/F013 US4, contracts/personal-target-chat-api.md):
+     * one thread per user, and Buddy can only propose goals here, never change the plan.
+     */
+    @PostMapping("/chat/personal-target/{userId}")
+    public ResponseEntity<ChatResponse> chatAboutGoals(
+            @PathVariable UUID userId,
+            @RequestBody PersonalTargetChatRequest request) {
+        User user = userGuard.requireUser(userId);
+        String message = requireMessage(request.message());
+        logger.debug("AI personal target chat request for user {}: {}", userId, message);
+        ChatConversation conversation = conversations.getOrCreatePersonalTargetConversation(user);
+        ChatContext context = conversations.buildContext(conversation.getId());
+        BuddyReply aiReply;
+        try {
+            aiReply = personalTargetAi.chat(userId, context, message, localTime(request.localTime()));
+        } catch (RuntimeException e) {
+            // Constitution V: an AI failure is a 503 and nothing is stored.
+            logger.warn("Personal target chat failed for user {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, ReflectionFeedbackService.AI_UNAVAILABLE);
+        }
+        conversations.appendExchange(conversation.getId(), message, aiReply.text());
+        logger.debug("AI personal target chat response for user {}: {}", userId, aiReply.text());
+        return ResponseEntity.ok(reply(aiReply));
+    }
+
+    @GetMapping("/chat/personal-target/{userId}/messages")
+    public ChatHistoryPage personalTargetHistory(
+            @PathVariable UUID userId,
+            @RequestParam(required = false) Long before,
+            @RequestParam(required = false) Integer limit) {
+        userGuard.requireUser(userId);
+        return conversations.getHistory(conversations.findPersonalTargetConversation(userId), before, limit);
     }
 
     /** The user's local time for Buddy's tone (F015); a missing or malformed value is ignored, never refused. */

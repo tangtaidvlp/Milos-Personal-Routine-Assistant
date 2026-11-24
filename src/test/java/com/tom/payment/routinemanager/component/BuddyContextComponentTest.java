@@ -65,7 +65,8 @@ class BuddyContextComponentTest extends BaseComponentTest {
     void onlyTheTodayChatIsKeptShort() throws Exception {
         TestUser user = newUser("context");
         assertTrue(buddyContext.promptBlock(user.id(), BuddyCall.DAILY_CHAT, null).contains(ChatKind.DAY_TO_DAY.lengthRule()));
-        for (BuddyCall deep : new BuddyCall[] {BuddyCall.DEFAULT_ROUTINE_CHAT, BuddyCall.REFLECTION_CHAT, BuddyCall.REFLECTION_FEEDBACK}) {
+        for (BuddyCall deep : new BuddyCall[] {BuddyCall.DEFAULT_ROUTINE_CHAT, BuddyCall.REFLECTION_CHAT,
+                BuddyCall.REFLECTION_FEEDBACK, BuddyCall.PERSONAL_TARGET_CHAT}) {
             String block = buddyContext.promptBlock(user.id(), deep, LocalTime.NOON);
             assertTrue(block.contains(ChatKind.DEEP.lengthRule()), deep.name());
             assertFalse(block.contains(ChatKind.DAY_TO_DAY.lengthRule()), deep.name());
