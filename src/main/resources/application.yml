@@ -9,6 +9,13 @@ app:
     compaction-threshold: 20
     # Max messages returned per chat-history request (lazy-load page size).
     history-page-size: 20
+  # Limits on AI calls (B010). Rate limits are per user, in memory.
+  ai:
+    timeout: 30s        # HTTP timeout of one Gemini call
+    max-retries: 1      # retries after a transient failure
+    rate-limit:
+      per-minute: 10
+      per-day: 200
   # Task colour palette (specs/.done.F005-i-want-color-to-be-persisted), served at GET /api/v1/task-palette.
   # List order = round-robin order for auto-assigned colours.
   # Never rename or remove an id once released: tasks store it. Only add entries or recolour them.

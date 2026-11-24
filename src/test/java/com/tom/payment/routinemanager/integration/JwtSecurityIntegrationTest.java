@@ -52,8 +52,9 @@ class JwtSecurityIntegrationTest extends BaseComponentTest {
     void tamperedTokenIsNotAuthenticated() throws Exception {
         TestUser user = newUser("jwt");
         String token = user.accessToken();
-        char last = token.charAt(token.length() - 1);
-        String tampered = token.substring(0, token.length() - 1) + (last == 'A' ? 'B' : 'A');
+        // First signature character: all 6 bits are data (the last character has unused low bits).
+        int i = token.lastIndexOf('.') + 1;
+        String tampered = token.substring(0, i) + (token.charAt(i) == 'A' ? 'B' : 'A') + token.substring(i + 1);
         mvc.perform(get(settingsUrl(user)).header(HttpHeaders.AUTHORIZATION, "Bearer " + tampered))
                 .andExpect(error(HttpStatus.UNAUTHORIZED));
     }

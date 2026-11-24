@@ -41,6 +41,7 @@ public class PersonalGoalService {
     private final Clock clock;
     private final GoalReviewer reviewer;
     private final TransactionTemplate transactions;
+    private final AiRateLimiter rateLimiter;
 
     /** The user's goals, oldest first. */
     @Transactional(readOnly = true)
@@ -115,6 +116,7 @@ public class PersonalGoalService {
 
     /** Buddy's check; no answer is a 503 and nothing is saved (FR-024). */
     private GoalReview review(UUID userId, GoalRules.Normalized value) {
+        rateLimiter.acquire(userId); // outside the try: a 429 must not become a 503
         GoalReview review;
         try {
             review = reviewer.review(value);

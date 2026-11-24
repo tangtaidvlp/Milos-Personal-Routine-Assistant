@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status (as of 2026-11-24)
 
-- **Phase:** pre-production. Production phase 1 (Flyway baseline, `prod` profile) hasn't started; the EC2 backend runs the `test` profile; CI/CD hardening is deferred for cost.
+- **Phase:** pre-production. Production phase 1 (Flyway baseline, `prod` profile) hasn't started; the backend runs only locally; CI/CD hardening is deferred for cost.
 - **Done:** F004 chat history, F005 task colours, F006 user settings, F007 reflection, F008 test structure, F011 overnight tasks, F012 reset day (`specs/.done.*`).
 - **Open bugs** (`AI-project-docs/bugs/`; remove a row when its bug is closed):
 
@@ -97,6 +97,8 @@ SPRING_PROFILES_ACTIVE=fast ./gradlew bootRun
   - **`MockAiChatService`** (`spring.ai.active=false`) — returns echo responses, no Spring AI beans required.
 - `AiRoutineFunctions` is a **legacy** function-calling approach using `java.util.function.Function` beans — it coexists but `GeminiAiChatService` uses the `@Tool` approach.
 - Gemini API key is configured via `GEMINI_API_KEY` environment variable.
+- **Rate limit and timeout (B010)** — `service/AiRateLimiter.acquire(userId)` (in memory, per user, `Clock`-based) runs right before every user-triggered AI call: `AIController.callAi` (the 4 chats), `ReflectionFeedbackService.generate`, `PersonalGoalService.review` (an unchanged goal edit skips it). It runs after validation and **outside** the 503 `try`, so over the limit is 429 `ApiError` with nothing stored and no AI call. Chat compaction isn't limited. Config `AiCallProperties` (`app.ai.*`): `rate-limit.per-minute` (10), `rate-limit.per-day` (200), `timeout` (30s), `max-retries` (1). The test profile raises per-minute to 20 (all tests share one fixed instant).
+- `config/AiClientConfig` (only with `spring.ai.active=true`) replaces Spring AI's Gemini `Client` (no HTTP timeout, SDK retries 5 times; the SDK retry is switched off, so the `RetryTemplate` is the only retry layer) and the default `RetryTemplate` (10 retries, minutes): `app.ai.timeout` and `max-retries` apply to both. API-key access only; no Vertex branch.
 - **Chat history (F004, `specs/.done.F004-…`)** — `service/chat/ChatConversationService` stores each exchange in `chat_conversation` / `chat_message`: one conversation per (user, default routine), which includes onboarding chats, and one per (user, date). An exchange is stored only after the AI replies, so a failed call stores nothing. Buddy's context = `summary_text` + messages after `summarized_through_seq`, rebuilt from the DB on every message, so it survives restarts.
 - **Compaction** — `ChatCompactionService` runs `@Async` after commit. Once `app.chat.compaction-threshold` (default 20) messages are past the cursor, `ChatSummarizer` folds them into the summary: `GeminiChatSummarizer` uses its own tool-less client, `MockChatSummarizer` is used when AI is off. Visible messages never change. A failure is logged and retried after the next exchange.
 - History: `GET /api/ai/chat/default-routine/{userId}/{routineId}/messages` and `GET /api/ai/chat/daily-routine/{userId}/{date}/messages`. Both page with `?before=<seq>&limit=` (max `app.chat.history-page-size`, 20) and return `{messages (oldest→newest), hasMore, nextBefore}`. `CurrentUserGuard` returns 404 for an unknown user and 403 when the JWT user ≠ `{userId}`. The routine must belong to the user, otherwise 404.
