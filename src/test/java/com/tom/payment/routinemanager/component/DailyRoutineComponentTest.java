@@ -155,6 +155,51 @@ class DailyRoutineComponentTest extends BaseComponentTest {
     }
 
     @Test
+    void aBatchValidOnlyAsAWholeIsStored() throws Exception {
+        TestUser user = newUser("daily");
+        LocalDate day = clock.today().plusDays(1);
+        String routineId = ensureDay(user, day).get("id").asText();
+        JsonNode created = read(mvc.perform(as(user, post(DAILY + "/" + routineId + "/tasks"), List.of(
+                        task("A", "09:00", 60), task("B", "09:00", 60), task("C", "09:00", 60), task("D", "12:00", 60))))
+                .andExpect(status().isOk()));
+        String c = created.get(2).get("id").asText();
+        String d = created.get(3).get("id").asText();
+
+        // D joins 09:00 only because C leaves it in the same request.
+        mvc.perform(as(user, put(DAILY + "/tasks"), List.of(
+                        Map.of("id", d, "name", "D", "startTime", "09:00", "durationMinutes", 60),
+                        Map.of("id", c, "name", "C", "startTime", "13:00", "durationMinutes", 60))))
+                .andExpect(status().isOk());
+
+        JsonNode tasks = day(user, day).get("tasks");
+        assertEquals("09:00", byName(tasks, "D").get("startTime").asText());
+        assertEquals("13:00", byName(tasks, "C").get("startTime").asText());
+    }
+
+    @Test
+    void aBatchLeavingFourTasksAtOneMomentIsRefusedAndNothingChanges() throws Exception {
+        TestUser user = newUser("daily");
+        LocalDate day = clock.today().plusDays(1);
+        String routineId = ensureDay(user, day).get("id").asText();
+        JsonNode created = read(mvc.perform(as(user, post(DAILY + "/" + routineId + "/tasks"), List.of(
+                        task("A", "09:00", 60), task("B", "09:00", 60), task("C", "09:00", 60),
+                        task("D", "12:00", 60), task("E", "14:00", 60))))
+                .andExpect(status().isOk()));
+        String d = created.get(3).get("id").asText();
+        String e = created.get(4).get("id").asText();
+
+        JsonNode refusal = read(mvc.perform(as(user, put(DAILY + "/tasks"), List.of(
+                        Map.of("id", e, "name", "E", "startTime", "16:00", "durationMinutes", 60),
+                        Map.of("id", d, "name", "D", "startTime", "09:30", "durationMinutes", 60))))
+                .andExpect(error(HttpStatus.CONFLICT)));
+        assertEquals("A time slot can hold at most 3 tasks.", refusal.get("message").asText());
+
+        JsonNode tasks = day(user, day).get("tasks");
+        assertEquals("12:00", byName(tasks, "D").get("startTime").asText());
+        assertEquals("14:00", byName(tasks, "E").get("startTime").asText());
+    }
+
+    @Test
     void durationOutsideOneDayIsRefused() throws Exception {
         TestUser user = newUser("daily");
         LocalDate day = clock.today().plusDays(1);
@@ -310,6 +355,11 @@ class DailyRoutineComponentTest extends BaseComponentTest {
 
     private static Map<String, Object> task(String name, String start, int minutes) {
         return Map.of("name", name, "startTime", start, "durationMinutes", minutes);
+    }
+
+    private static JsonNode byName(JsonNode tasks, String name) {
+        return java.util.stream.StreamSupport.stream(tasks.spliterator(), false)
+                .filter(t -> name.equals(t.get("name").asText())).findFirst().orElseThrow();
     }
 
     private static List<String> names(JsonNode tasks) {
