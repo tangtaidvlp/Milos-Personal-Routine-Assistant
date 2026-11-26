@@ -75,6 +75,21 @@ class SignInComponentTest extends BaseComponentTest {
     }
 
     @Test
+    void refreshCookieLastsSevenDays() throws Exception {
+        Cookie cookie = refreshCookie(registered());
+        assertEquals(604800, cookie.getMaxAge());
+    }
+
+    @Test
+    void refreshStillWorksAfterTheAccessTokenLifetimeButNotAfterSevenDays() throws Exception {
+        Cookie cookie = refreshCookie(registered());
+        clock.advance(Duration.ofMinutes(16));
+        refresh(cookie).andExpect(status().isOk());
+        clock.advance(Duration.ofDays(7));
+        expectSessionExpired(refresh(cookie));
+    }
+
+    @Test
     void logoutClearsTheRefreshCookie() throws Exception {
         MvcResult result = mvc.perform(post("/api/v1/auth/logout")).andExpect(status().isOk()).andReturn();
         Cookie cookie = result.getResponse().getCookie("refresh_token");

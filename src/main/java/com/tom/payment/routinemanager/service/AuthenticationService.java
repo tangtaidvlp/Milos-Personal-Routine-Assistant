@@ -96,8 +96,7 @@ public class AuthenticationService {
         String accessToken = generateAccessToken(user);
 
         // Generate and save refresh token
-        // NOTE: uses the access-token lifetime, not refreshTokenExpiration (filed as a bug, F008 T058).
-        Instant expiryDate = clock.instant().plusSeconds(accessTokenExpiration);
+        Instant expiryDate = clock.instant().plusSeconds(refreshTokenExpiration);
         String refreshTokenValue = generateRefreshToken(user, expiryDate);
         saveRefreshToken(user.getId(), refreshTokenValue, expiryDate);
 

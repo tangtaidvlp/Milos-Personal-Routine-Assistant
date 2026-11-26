@@ -12,7 +12,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---|---|---|
 | bug-0002 | High | Default/daily routine endpoints don't check that the routine belongs to the caller |
 | bug-0006 | High once `prod` is used | `prod` (open-in-view off) returns 500 on routine reads: entities are serialised directly |
-| bug-0003 | Medium | Refresh token expires after 15 min instead of 7 days |
 | bug-0004 | Medium | Logout doesn't revoke the stored refresh token |
 | bug-0005 | Medium | Buddy's update/delete tools fail without an open Hibernate session |
 | bug-0007 | Medium | Deployed `test` profile exposes the cron support endpoint; CI deploy sets no profile |
