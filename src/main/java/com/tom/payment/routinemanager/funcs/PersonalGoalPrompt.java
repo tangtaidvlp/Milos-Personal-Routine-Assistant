@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tom.payment.routinemanager.model.PersonalGoal;
 
 /**
- * The goals block added to Buddy's system text on every call (specs/F013-personal-goals,
+ * The goals block added to Buddy's system text on every call (specs/.done.F013-personal-goals,
  * research R4, contracts/buddy-chat-goal-proposal.md §4). Goals go in as a JSON array so text
  * the user typed can't break out of the data and act as instructions (OWASP LLM01).
  */

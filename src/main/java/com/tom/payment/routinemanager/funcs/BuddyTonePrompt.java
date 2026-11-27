@@ -1,7 +1,7 @@
 package com.tom.payment.routinemanager.funcs;
 
 /**
- * The "How you talk" block added to Buddy's system text (specs/F014-buddy-tone,
+ * The "How you talk" block added to Buddy's system text (specs/.done.F014-buddy-tone,
  * contracts/buddy-prompt-tone.md): the user's tone as its fixed style line, plus the rules every
  * tone keeps (FR-008, FR-009, FR-012).
  */

@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A user's personal goals (specs/F013-personal-goals, contracts/goals-api.md). At most
+ * A user's personal goals (specs/.done.F013-personal-goals, contracts/goals-api.md). At most
  * {@link GoalRules#MAX_GOALS} per user: {@link #create} counts under a user-row lock, so two
  * saves at once can't make a 4th goal (research R2). Every lookup is scoped by the owner. New and
  * changed goals are checked by Buddy first ({@link GoalReviewer}, US5, research R12).

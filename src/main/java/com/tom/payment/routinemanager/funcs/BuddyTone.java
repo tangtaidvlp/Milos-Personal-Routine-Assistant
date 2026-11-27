@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Buddy's tones (specs/F014-buddy-tone, data-model §2). Each is a fixed preset of directiveness,
+ * Buddy's tones (specs/.done.F014-buddy-tone, data-model §2). Each is a fixed preset of directiveness,
  * warmth, strictness and length, put into words as one style line for the prompt
  * (contracts/buddy-prompt-tone.md). The ids are stored in {@code user_setting}: never rename or
  * remove one without a migration. UI copy lives in the frontend {@code utils/buddyTones.ts}.

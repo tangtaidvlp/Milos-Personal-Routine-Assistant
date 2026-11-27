@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * One of a user's personal goals (specs/F013-personal-goals, data-model §1). At most 3 per
+ * One of a user's personal goals (specs/.done.F013-personal-goals, data-model §1). At most 3 per
  * user (enforced by PersonalGoalService). The user is referenced by id only, so the
  * {@link User} JSON is unchanged. DDL: db/F013-personal-goals.sql.
  */

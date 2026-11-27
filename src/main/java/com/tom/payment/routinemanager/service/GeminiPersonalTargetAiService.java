@@ -11,7 +11,7 @@ import com.tom.payment.routinemanager.service.aitools.GoalProposalTool;
 import com.tom.payment.routinemanager.service.chat.ChatContext;
 
 /**
- * Gemini-backed Buddy for the Personal Target page (specs/F013-personal-goals research R11).
+ * Gemini-backed Buddy for the Personal Target page (specs/.done.F013-personal-goals research R11).
  * The client comes from its own prototype builder with no default tools, so the plan tools
  * registered by {@link GeminiAiChatService} never reach this chat; each call adds only
  * {@link GoalProposalTool}, which never writes.
