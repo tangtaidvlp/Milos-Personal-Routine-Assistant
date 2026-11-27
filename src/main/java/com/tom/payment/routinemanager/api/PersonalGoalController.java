@@ -26,7 +26,7 @@ import com.tom.payment.routinemanager.service.PersonalGoalService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Personal goals (specs/F013-personal-goals, contracts/goals-api.md).
+ * Personal goals (specs/.done.F013-personal-goals, contracts/goals-api.md).
  * {@link CurrentUserGuard}: 404 for an unknown user, 403 when the signed-in user is someone else.
  */
 @RestController

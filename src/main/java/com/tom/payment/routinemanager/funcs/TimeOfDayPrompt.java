@@ -4,7 +4,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * The "Right now" block added last to Buddy's system text (specs/F015-context-aware-tone,
+ * The "Right now" block added last to Buddy's system text (specs/.done.F015-context-aware-tone,
  * contracts/buddy-local-time.md): the user's part of the day, which adjusts the chosen tone, and
  * how long replies may be in this kind of conversation.
  */

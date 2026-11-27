@@ -5,7 +5,7 @@
 --
 -- The user is referenced by id only (no JPA relation), like user_setting. The limit of
 -- 3 goals per user is enforced by the service under a user-row lock
--- (specs/F013-personal-goals, data-model §1, research R2).
+-- (specs/.done.F013-personal-goals, data-model §1, research R2).
 
 CREATE TABLE IF NOT EXISTS personal_goal (
     id          UUID                     PRIMARY KEY,

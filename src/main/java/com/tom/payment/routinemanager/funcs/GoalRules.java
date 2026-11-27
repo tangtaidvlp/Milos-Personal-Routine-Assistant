@@ -1,7 +1,7 @@
 package com.tom.payment.routinemanager.funcs;
 
 /**
- * Rules for a personal goal (specs/F013-personal-goals, data-model §2). Used by the goals API
+ * Rules for a personal goal (specs/.done.F013-personal-goals, data-model §2). Used by the goals API
  * and by Buddy's proposal tool, so both refuse the same input with the same message.
  * Mirrored in the frontend by {@code features/personal-target/utils/goalRules.ts}.
  */

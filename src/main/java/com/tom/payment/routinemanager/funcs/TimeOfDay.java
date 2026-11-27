@@ -5,7 +5,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * The user's part of the day (specs/F015-context-aware-tone, data-model): morning 05:00–11:59,
+ * The user's part of the day (specs/.done.F015-context-aware-tone, data-model): morning 05:00–11:59,
  * midday 12:00–16:59, evening 17:00–04:59. Buddy adjusts the chosen tone to it.
  */
 public enum TimeOfDay {
