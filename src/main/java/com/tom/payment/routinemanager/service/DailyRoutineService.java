@@ -118,6 +118,7 @@ public class DailyRoutineService {
             task.setDurationMinutes(source.getDurationMinutes());
             task.setCompleted(false);
             task.setColor(source.getColor());
+            task.setOverlay(source.getOverlay());
             task.setDailyRoutine(target);
             target.getTasks().add(task);
         });
@@ -160,6 +161,9 @@ public class DailyRoutineService {
             if (details.getColor() != null) {
                 taskColorService.requireValid(details.getColor());
                 existing.setColor(details.getColor());
+            }
+            if (details.getOverlay() != null) {
+                existing.setOverlay(details.getOverlay());
             }
             if (timeChanged && existing.getDailyRoutine() != null) {
                 changedByRoutine.computeIfAbsent(existing.getDailyRoutine(), r -> new ArrayList<>()).add(existing);

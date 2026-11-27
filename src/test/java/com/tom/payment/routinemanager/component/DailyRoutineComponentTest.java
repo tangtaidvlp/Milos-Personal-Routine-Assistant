@@ -332,6 +332,52 @@ class DailyRoutineComponentTest extends BaseComponentTest {
         return DAILY + "/" + user.id() + "/" + date + "/reset";
     }
 
+    // ---------- Overlay (specs/F017) ----------
+
+    @Test
+    void overlayDefaultsToFalseIsStoredAndKeptWhenNotSent() throws Exception {
+        TestUser user = newUser("overlay");
+        String routineId = ensureDay(user, clock.today().plusDays(1)).get("id").asText();
+
+        JsonNode created = read(mvc.perform(as(user, post(DAILY + "/" + routineId + "/tasks"), List.of(
+                        task("Plain", "07:00", 30),
+                        Map.of("name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", true))))
+                .andExpect(status().isOk()));
+        assertFalse(created.get(0).get("overlay").asBoolean());
+        assertTrue(created.get(1).get("overlay").asBoolean());
+        String free = created.get(1).get("id").asText();
+
+        mvc.perform(as(user, put(DAILY + "/tasks"), List.of(Map.of(
+                        "id", free, "name", "Free", "startTime", "08:00", "durationMinutes", 30, "completed", true))))
+                .andExpect(status().isOk());
+        assertTrue(dailyTaskRepository.findById(UUID.fromString(free)).orElseThrow().getOverlay());
+
+        mvc.perform(as(user, put(DAILY + "/tasks"), List.of(Map.of(
+                        "id", free, "name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", false))))
+                .andExpect(status().isOk());
+        assertFalse(dailyTaskRepository.findById(UUID.fromString(free)).orElseThrow().getOverlay());
+    }
+
+    @Test
+    void aDayCreatedFromTheTemplateAndAResetCopyOverlay() throws Exception {
+        TestUser user = newUser("overlay");
+        addTemplateTasks(user, "DAILY", List.of(
+                Map.of("name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", true),
+                task("Plain", "09:00", 30)));
+
+        JsonNode created = ensureDay(user, clock.today().plusDays(1)).get("tasks");
+        assertTrue(byName(created, "Free").get("overlay").asBoolean());
+        assertFalse(byName(created, "Plain").get("overlay").asBoolean());
+
+        LocalDate today = clock.today();
+        ensureDay(user, today);
+        mvc.perform(as(user, post(resetPath(user, today)))).andExpect(status().isNoContent());
+        JsonNode reset = day(user, today).get("tasks");
+        assertTrue(byName(reset, "Free").get("overlay").asBoolean());
+        assertFalse(byName(reset, "Plain").get("overlay").asBoolean());
+    }
+
+
     private User user(TestUser user) {
         return userRepository.findById(user.id()).orElseThrow();
     }

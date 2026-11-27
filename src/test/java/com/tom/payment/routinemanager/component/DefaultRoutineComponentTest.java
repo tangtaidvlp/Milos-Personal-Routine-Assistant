@@ -204,6 +204,44 @@ class DefaultRoutineComponentTest extends BaseComponentTest {
         mvc.perform(as(other, post(copyPath(owner)))).andExpect(error(HttpStatus.FORBIDDEN));
     }
 
+    // ---------- Overlay (specs/F017) ----------
+
+    @Test
+    void overlayDefaultsToFalseIsStoredAndKeptWhenNotSent() throws Exception {
+        TestUser user = newUser("overlay");
+        String routineId = weekday(user).get("id").asText();
+
+        JsonNode created = addTasks(user, routineId, List.of(task("Plain", "07:00", 30),
+                Map.of("name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", true)));
+        assertEquals(false, created.get(0).get("overlay").asBoolean());
+        assertEquals(true, created.get(1).get("overlay").asBoolean());
+        String free = created.get(1).get("id").asText();
+
+        mvc.perform(as(user, put(BASE + "/tasks"), List.of(Map.of(
+                        "id", free, "name", "Free", "startTime", "08:00", "durationMinutes", 30))))
+                .andExpect(status().isOk());
+        assertEquals(true, byName(weekday(user).get("tasks"), "Free").get("overlay").asBoolean());
+
+        mvc.perform(as(user, put(BASE + "/tasks"), List.of(Map.of(
+                        "id", free, "name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", false))))
+                .andExpect(status().isOk());
+        assertEquals(false, byName(weekday(user).get("tasks"), "Free").get("overlay").asBoolean());
+    }
+
+    @Test
+    void copyKeepsOverlay() throws Exception {
+        TestUser user = newUser("overlay");
+        addTasks(user, weekday(user).get("id").asText(), List.of(
+                Map.of("name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", true),
+                task("Plain", "09:00", 30)));
+
+        mvc.perform(as(user, post(copyPath(user)))).andExpect(status().isNoContent());
+
+        JsonNode weekendTasks = weekend(user).get("tasks");
+        assertEquals(true, byName(weekendTasks, "Free").get("overlay").asBoolean());
+        assertEquals(false, byName(weekendTasks, "Plain").get("overlay").asBoolean());
+    }
+
     // ---------- helpers ----------
 
     private static String copyPath(TestUser user) {

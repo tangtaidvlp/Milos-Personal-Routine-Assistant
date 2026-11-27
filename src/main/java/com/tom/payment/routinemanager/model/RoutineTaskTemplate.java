@@ -7,12 +7,14 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -32,6 +34,17 @@ public class RoutineTaskTemplate {
     private String description;
     private int durationMinutes;
     private String color;
+
+    /** Task may overlap other tasks (F017). Never null in responses. */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean overlay;
+
+    @PrePersist
+    void defaultOverlay() {
+        if (overlay == null) {
+            overlay = false;
+        }
+    }
 
     @JsonBackReference
     @ManyToOne

@@ -140,6 +140,7 @@ public class DefaultRoutineService {
             task.setStartTime(source.getStartTime());
             task.setDurationMinutes(source.getDurationMinutes());
             task.setColor(source.getColor());
+            task.setOverlay(source.getOverlay());
             task.setDefaultRoutine(weekend);
             weekend.getTasks().add(task);
         });
@@ -202,6 +203,9 @@ public class DefaultRoutineService {
             if (details.getColor() != null) {
                 taskColorService.requireValid(details.getColor());
                 existing.setColor(details.getColor());
+            }
+            if (details.getOverlay() != null) {
+                existing.setOverlay(details.getOverlay());
             }
             if (timeChanged && existing.getDefaultRoutine() != null) {
                 changedByRoutine.computeIfAbsent(existing.getDefaultRoutine(), r -> new ArrayList<>()).add(existing);
