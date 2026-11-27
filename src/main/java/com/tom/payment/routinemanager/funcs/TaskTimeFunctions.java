@@ -1,23 +1,21 @@
 package com.tom.payment.routinemanager.funcs;
 
-import com.tom.payment.routinemanager.model.DailyTask;
-import com.tom.payment.routinemanager.model.RoutineTaskTemplate;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.Collection;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
+import java.util.function.ToIntFunction;
 
 /**
- * Overlap push on a 24h cycle: a task may run past midnight (F011, research R2).
- * An overlapping sibling moves to start at the new task's end; a pushed task can push the next one.
+ * Task time rules on a 24h cycle: a task may run past midnight (F011). Overlaps are never moved; they are capped (T002).
  */
 public final class TaskTimeFunctions {
+
+    public static final int MAX_PARALLEL_TASKS = 3;
+    public static final String OVERLAP_CAP_MESSAGE = "A time slot can hold at most 3 tasks.";
 
     private static final int MINUTES_PER_DAY = 24 * 60;
 
@@ -31,65 +29,38 @@ public final class TaskTimeFunctions {
         }
     }
 
-    public static void standardiseTasks(List<RoutineTaskTemplate> existingTasks, RoutineTaskTemplate newTask) {
-        if (newTask == null) {
+    /**
+     * At most {@link #MAX_PARALLEL_TASKS} tasks may cover any one minute of the 24h cycle (T002, research R4).
+     * Only minutes covered by a changed task are checked, so an old crowded spot elsewhere never fails a save.
+     */
+    public static <T> void requireOverlapCap(Collection<T> allTasks, Collection<T> changedTasks,
+            Function<T, LocalTime> start, ToIntFunction<T> durationMinutes) {
+        if (changedTasks.isEmpty()) {
             return;
         }
-        shift(existingTasks, newTask, newTask.getDurationMinutes(),
-                RoutineTaskTemplate::getStartTime, RoutineTaskTemplate::getEndTime, RoutineTaskTemplate::setStartTime);
+        int[] counts = new int[MINUTES_PER_DAY];
+        for (T task : allTasks) {
+            forEachMinute(task, start, durationMinutes, minute -> counts[minute]++);
+        }
+        for (T task : changedTasks) {
+            forEachMinute(task, start, durationMinutes, minute -> {
+                if (counts[minute] > MAX_PARALLEL_TASKS) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, OVERLAP_CAP_MESSAGE);
+                }
+            });
+        }
     }
 
-    public static void shiftOverlappingTasks(List<DailyTask> existingTasks, DailyTask newTask) {
-        if (newTask == null) {
+    private static <T> void forEachMinute(T task, Function<T, LocalTime> start, ToIntFunction<T> durationMinutes,
+            IntConsumer action) {
+        LocalTime startTime = start.apply(task);
+        if (startTime == null) {
             return;
         }
-        shift(existingTasks, newTask, newTask.getDurationMinutes(),
-                DailyTask::getStartTime, DailyTask::getEndTime, DailyTask::setStartTime);
-    }
-
-    private static <T> void shift(List<T> existingTasks, T newTask, int newDuration,
-            Function<T, LocalTime> start, Function<T, LocalTime> end, BiConsumer<T, LocalTime> setStart) {
-        if (existingTasks == null || start.apply(newTask) == null || newDuration <= 0) {
-            return;
+        int first = startTime.toSecondOfDay() / 60;
+        int length = Math.min(durationMinutes.applyAsInt(task), MINUTES_PER_DAY);
+        for (int i = 0; i < length; i++) {
+            action.accept((first + i) % MINUTES_PER_DAY);
         }
-
-        LocalTime insertionStart = start.apply(newTask);
-        LocalTime insertionEnd = end.apply(newTask);
-        if (insertionEnd == null) {
-            return;
-        }
-
-        List<T> sortedTasks = new ArrayList<>(existingTasks);
-        sortedTasks.sort(Comparator.comparing(start, Comparator.nullsLast(Comparator.naturalOrder())));
-
-        for (T task : sortedTasks) {
-            if (task == newTask || start.apply(task) == null || end.apply(task) == null) {
-                continue;
-            }
-            if (isOverlapping(minutes(start.apply(task)), minutes(end.apply(task)),
-                    minutes(insertionStart), minutes(insertionEnd))) {
-                setStart.accept(task, insertionEnd);
-                insertionEnd = end.apply(task);
-            }
-        }
-    }
-
-    /** Ranges on a 24h cycle: {@code end <= start} wraps past midnight, {@code end == start} is a full day. */
-    private static boolean isOverlapping(int firstStart, int firstEnd, int secondStart, int secondEnd) {
-        return cycle(secondStart - firstStart) < length(firstStart, firstEnd)
-                || cycle(firstStart - secondStart) < length(secondStart, secondEnd);
-    }
-
-    private static int length(int start, int end) {
-        int length = cycle(end - start);
-        return length == 0 ? MINUTES_PER_DAY : length;
-    }
-
-    private static int cycle(int minutes) {
-        return Math.floorMod(minutes, MINUTES_PER_DAY);
-    }
-
-    private static int minutes(LocalTime time) {
-        return time.toSecondOfDay() / 60;
     }
 }

@@ -1,7 +1,11 @@
 package com.tom.payment.routinemanager.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.Optional;
@@ -136,6 +140,7 @@ public class DefaultRoutineService {
             task.setStartTime(source.getStartTime());
             task.setDurationMinutes(source.getDurationMinutes());
             task.setColor(source.getColor());
+            task.setOverlay(source.getOverlay());
             task.setDefaultRoutine(weekend);
             weekend.getTasks().add(task);
         });
@@ -172,10 +177,11 @@ public class DefaultRoutineService {
 
         List<RoutineTaskTemplate> savedTasks = tasks.stream().map(task -> {
             task.setDefaultRoutine(routine);
-            TaskTimeFunctions.standardiseTasks(routine.getTasks(), task);
             routine.getTasks().add(task);
             return task;
         }).collect(Collectors.toList());
+        TaskTimeFunctions.requireOverlapCap(routine.getTasks(), savedTasks,
+                RoutineTaskTemplate::getStartTime, RoutineTaskTemplate::getDurationMinutes);
 
         return routineTaskTemplateRepository.saveAll(savedTasks);
     }
@@ -183,9 +189,12 @@ public class DefaultRoutineService {
     @Transactional
     public List<RoutineTaskTemplate> updateDefaultTasks(List<RoutineTaskTemplate> tasksDetails) {
         tasksDetails.forEach(details -> TaskTimeFunctions.requireValidDuration(details.getDurationMinutes()));
-        return tasksDetails.stream().map(details -> {
+        Map<DefaultRoutine, List<RoutineTaskTemplate>> changedByRoutine = new LinkedHashMap<>();
+        List<RoutineTaskTemplate> updated = tasksDetails.stream().map(details -> {
             RoutineTaskTemplate existing = routineTaskTemplateRepository.findById(details.getId())
                     .orElseThrow(() -> new RuntimeException("Task template not found: " + details.getId()));
+            boolean timeChanged = !Objects.equals(existing.getStartTime(), details.getStartTime())
+                    || existing.getDurationMinutes() != details.getDurationMinutes();
             existing.setName(details.getName());
             existing.setDescription(details.getDescription());
             existing.setStartTime(details.getStartTime());
@@ -195,17 +204,18 @@ public class DefaultRoutineService {
                 taskColorService.requireValid(details.getColor());
                 existing.setColor(details.getColor());
             }
-
-            DefaultRoutine routine = existing.getDefaultRoutine();
-            if (routine != null) {
-                List<RoutineTaskTemplate> siblings = routine.getTasks().stream()
-                        .filter(task -> !task.getId().equals(existing.getId()))
-                        .collect(Collectors.toList());
-                TaskTimeFunctions.standardiseTasks(siblings, existing);
+            if (details.getOverlay() != null) {
+                existing.setOverlay(details.getOverlay());
             }
-
-            return routineTaskTemplateRepository.save(existing);
+            if (timeChanged && existing.getDefaultRoutine() != null) {
+                changedByRoutine.computeIfAbsent(existing.getDefaultRoutine(), r -> new ArrayList<>()).add(existing);
+            }
+            return existing;
         }).collect(Collectors.toList());
+
+        changedByRoutine.forEach((routine, changed) -> TaskTimeFunctions.requireOverlapCap(routine.getTasks(),
+                changed, RoutineTaskTemplate::getStartTime, RoutineTaskTemplate::getDurationMinutes));
+        return routineTaskTemplateRepository.saveAll(updated);
     }
 
     @Transactional

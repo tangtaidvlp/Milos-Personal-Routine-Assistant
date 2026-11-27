@@ -14,6 +14,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -36,6 +37,17 @@ public class DailyTask {
     /** Palette id or #RRGGBB (specs/F005). Null only on tasks created before F005. */
     @Column(length = 32)
     private String color;
+
+    /** Task may overlap other tasks (F017). Never null in responses. */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean overlay;
+
+    @PrePersist
+    void defaultOverlay() {
+        if (overlay == null) {
+            overlay = false;
+        }
+    }
 
     @JsonBackReference
     @ManyToOne

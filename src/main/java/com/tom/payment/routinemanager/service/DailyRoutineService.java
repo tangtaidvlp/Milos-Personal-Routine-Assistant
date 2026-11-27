@@ -2,7 +2,11 @@ package com.tom.payment.routinemanager.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -114,6 +118,7 @@ public class DailyRoutineService {
             task.setDurationMinutes(source.getDurationMinutes());
             task.setCompleted(false);
             task.setColor(source.getColor());
+            task.setOverlay(source.getOverlay());
             task.setDailyRoutine(target);
             target.getTasks().add(task);
         });
@@ -129,10 +134,11 @@ public class DailyRoutineService {
 
         List<DailyTask> savedTasks = tasks.stream().map(task -> {
             task.setDailyRoutine(routine);
-            TaskTimeFunctions.shiftOverlappingTasks(routine.getTasks(), task);
             routine.getTasks().add(task);
             return task;
         }).collect(Collectors.toList());
+        TaskTimeFunctions.requireOverlapCap(routine.getTasks(), savedTasks,
+                DailyTask::getStartTime, DailyTask::getDurationMinutes);
 
         return dailyTaskRepository.saveAll(savedTasks);
     }
@@ -140,9 +146,12 @@ public class DailyRoutineService {
     @Transactional
     public List<DailyTask> updateDailyTasks(List<DailyTask> tasksDetails) {
         tasksDetails.forEach(details -> TaskTimeFunctions.requireValidDuration(details.getDurationMinutes()));
-        return tasksDetails.stream().map(details -> {
+        Map<DailyRoutine, List<DailyTask>> changedByRoutine = new LinkedHashMap<>();
+        List<DailyTask> updated = tasksDetails.stream().map(details -> {
             DailyTask existing = dailyTaskRepository.findById(details.getId())
                     .orElseThrow(() -> new RuntimeException("Daily task not found: " + details.getId()));
+            boolean timeChanged = !Objects.equals(existing.getStartTime(), details.getStartTime())
+                    || existing.getDurationMinutes() != details.getDurationMinutes();
             existing.setName(details.getName());
             existing.setDescription(details.getDescription());
             existing.setStartTime(details.getStartTime());
@@ -153,17 +162,18 @@ public class DailyRoutineService {
                 taskColorService.requireValid(details.getColor());
                 existing.setColor(details.getColor());
             }
-
-            DailyRoutine routine = existing.getDailyRoutine();
-            if (routine != null) {
-                List<DailyTask> siblings = routine.getTasks().stream()
-                        .filter(task -> !task.getId().equals(existing.getId()))
-                        .collect(Collectors.toList());
-                TaskTimeFunctions.shiftOverlappingTasks(siblings, existing);
+            if (details.getOverlay() != null) {
+                existing.setOverlay(details.getOverlay());
             }
-
-            return dailyTaskRepository.save(existing);
+            if (timeChanged && existing.getDailyRoutine() != null) {
+                changedByRoutine.computeIfAbsent(existing.getDailyRoutine(), r -> new ArrayList<>()).add(existing);
+            }
+            return existing;
         }).collect(Collectors.toList());
+
+        changedByRoutine.forEach((routine, changed) -> TaskTimeFunctions.requireOverlapCap(routine.getTasks(),
+                changed, DailyTask::getStartTime, DailyTask::getDurationMinutes));
+        return dailyTaskRepository.saveAll(updated);
     }
 
     @Transactional

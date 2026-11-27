@@ -20,7 +20,7 @@ import com.tom.payment.routinemanager.support.TestUser;
 
 /**
  * Flow: a user builds their weekday template (default routine) and edits its tasks.
- * Overlap-shift variations are in unit/TaskTimeFunctionsTest; colour rules in
+ * Overlap-cap variations are in unit/TaskTimeFunctionsTest; colour rules in
  * unit/TaskColorServiceTest. Access to another user's routine is not asserted, except
  * for Copy Weekday to Weekend (F012): the older endpoints have no ownership check yet
  * (bug filed by F008, research R6).
@@ -56,16 +56,29 @@ class DefaultRoutineComponentTest extends BaseComponentTest {
     }
 
     @Test
-    void insertingAnOverlappingTaskMovesTheExistingOneLater() throws Exception {
+    void overlappingTasksKeepTheirTimes() throws Exception {
         TestUser user = newUser("default");
         String routineId = weekday(user).get("id").asText();
         addTasks(user, routineId, List.of(task("Existing", "09:00", 60)));
 
         addTasks(user, routineId, List.of(task("Inserted", "09:30", 30)));
 
-        JsonNode existing = byName(weekday(user).get("tasks"), "Existing");
-        assertEquals("10:00", existing.get("startTime").asText());
-        assertEquals(60, existing.get("durationMinutes").asInt());
+        JsonNode tasks = weekday(user).get("tasks");
+        assertEquals("09:00", byName(tasks, "Existing").get("startTime").asText());
+        assertEquals("09:30", byName(tasks, "Inserted").get("startTime").asText());
+    }
+
+    @Test
+    void aFourthTaskAtTheSameMomentIsRefusedAndNothingIsStored() throws Exception {
+        TestUser user = newUser("default");
+        String routineId = weekday(user).get("id").asText();
+        addTasks(user, routineId, List.of(task("A", "09:00", 60), task("B", "09:00", 60), task("C", "09:00", 60)));
+
+        JsonNode refusal = read(mvc.perform(as(user, post(BASE + "/" + routineId + "/tasks"),
+                        List.of(task("D", "09:30", 15))))
+                .andExpect(error(HttpStatus.CONFLICT)));
+        assertEquals("A time slot can hold at most 3 tasks.", refusal.get("message").asText());
+        assertEquals(3, weekday(user).get("tasks").size());
     }
 
     @Test
@@ -189,6 +202,44 @@ class DefaultRoutineComponentTest extends BaseComponentTest {
         TestUser owner = newUser("copy");
         TestUser other = newUser("copy");
         mvc.perform(as(other, post(copyPath(owner)))).andExpect(error(HttpStatus.FORBIDDEN));
+    }
+
+    // ---------- Overlay (specs/F017) ----------
+
+    @Test
+    void overlayDefaultsToFalseIsStoredAndKeptWhenNotSent() throws Exception {
+        TestUser user = newUser("overlay");
+        String routineId = weekday(user).get("id").asText();
+
+        JsonNode created = addTasks(user, routineId, List.of(task("Plain", "07:00", 30),
+                Map.of("name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", true)));
+        assertEquals(false, created.get(0).get("overlay").asBoolean());
+        assertEquals(true, created.get(1).get("overlay").asBoolean());
+        String free = created.get(1).get("id").asText();
+
+        mvc.perform(as(user, put(BASE + "/tasks"), List.of(Map.of(
+                        "id", free, "name", "Free", "startTime", "08:00", "durationMinutes", 30))))
+                .andExpect(status().isOk());
+        assertEquals(true, byName(weekday(user).get("tasks"), "Free").get("overlay").asBoolean());
+
+        mvc.perform(as(user, put(BASE + "/tasks"), List.of(Map.of(
+                        "id", free, "name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", false))))
+                .andExpect(status().isOk());
+        assertEquals(false, byName(weekday(user).get("tasks"), "Free").get("overlay").asBoolean());
+    }
+
+    @Test
+    void copyKeepsOverlay() throws Exception {
+        TestUser user = newUser("overlay");
+        addTasks(user, weekday(user).get("id").asText(), List.of(
+                Map.of("name", "Free", "startTime", "08:00", "durationMinutes", 30, "overlay", true),
+                task("Plain", "09:00", 30)));
+
+        mvc.perform(as(user, post(copyPath(user)))).andExpect(status().isNoContent());
+
+        JsonNode weekendTasks = weekend(user).get("tasks");
+        assertEquals(true, byName(weekendTasks, "Free").get("overlay").asBoolean());
+        assertEquals(false, byName(weekendTasks, "Plain").get("overlay").asBoolean());
     }
 
     // ---------- helpers ----------
